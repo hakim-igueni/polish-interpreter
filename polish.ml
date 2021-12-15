@@ -186,6 +186,40 @@ let read_polish (filename:string) : program =
 
 let print_polish (p:program) : unit = failwith "TODO"
 
+
+let op_to_string op = 
+  match op with
+  |Add -> print_string "+ "
+  |Sub -> print_string "- "
+  |Mul -> print_string "* "
+  |Div -> print_string "/ "
+  |Mod -> print_string "% "
+let get_n n env = 
+  try Hashtbl.find env n with
+  Not_found -> failwith ""
+let eval_expr (exp: expr) (envir : env) = 
+  match exp with 
+  |Num (n) -> n
+  |Var (v) -> get_n v envir
+  |Op (op, expr1, expr2) -> (match op with 
+    |Add -> (eval_expr expr1 envir) + (eval_expr expr2 envir)
+    |Sub -> (eval_expr expr1 envir) - (eval_expr expr2 envir)
+    |Mul -> (eval_expr expr1 envir) * (eval_expr expr2 envir)
+    |Div -> if (eval_expr expr2 envir) <> 0 then (eval_expr expr1 envir) / (eval_expr expr2 envir)
+      else failwith "Division par zero"
+    |Mod -> if (eval_expr expr2 envir) <> 0 then (eval_expr expr1 envir) mod (eval_expr expr2 envir)
+      else failwith "Modulo par zero")
+    |_ -> failwith ""
+let eval_cond (cond:cond) (envir:env) =
+  match cond with
+  |(expr1, comp, expr2) -> match comp with
+    | Eq -> (eval_expr expr1 envir) = (eval_expr expr2 envir)
+    | Ne -> (eval_expr expr1 envir) <> (eval_expr expr2 envir)
+    | Lt -> (eval_expr expr1 envir) < (eval_expr expr2 envir)
+    | Le -> (eval_expr expr1 envir) <= (eval_expr expr2 envir)
+    | Gt -> (eval_expr expr1 envir) > (eval_expr expr2 envir)
+    | Ge -> (eval_expr expr1 envir) >= (eval_expr expr2 envir)
+
 let eval_polish (p:program) : unit = failwith "TODO"
 
 let usage () =
