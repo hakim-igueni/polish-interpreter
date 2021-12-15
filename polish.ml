@@ -77,23 +77,30 @@ let create_mots (s : string) : string list =
       else x::(create_mots_aux xs)
   in create_mots_aux (String.split_on_char ' ' (String.trim s))
 
+
+(** Vérifier si une chaine de caractères représente un entier *)
+let verify_int (x : string) : bool =
+  let x_opt = int_of_string_opt x 
+  in match x_opt with 
+  |Some n -> true
+  |None -> false
+
+
+(** Lire une expression *)
 let rec lire_expr (l : string list) : expr =
   match l with
   | [] -> failwith "Erreur de syntaxe: expression non reconnue"
-  | [x] -> let n_opt = int_of_string_opt x 
-    in match n_opt with
-    | Some n -> Num n
-    | None ->
-      if x <> "+" && x <> "-" && x <> "*" && x <> "/" && x <> "%" then Var x
+  | [x] -> if verify_int (x) then Num (int_of_string x) else
+      if (x <> "+" && x <> "-" && x <> "*" && x <> "/" && x <> "%") then (Var x
       else failwith "Erreur de syntaxe: expression non reconnue" 
-  | a::b::c::q -> match a with
-    | "+" -> Op (Add, lire_expr [b], lire_expr (c::q))
-    | "-" -> 
-    | "*" ->
-    | "/" ->
-    | "%" ->
+  |a::b::c::q -> match a with 
+    | "+" -> Op (Add, lire_expr [b], lire_expr (c::q)) 
+    | "-" -> Op (Sub, lire_expr [b], lire_expr (c::q))
+    | "*" -> Op (Mul, lire_expr [b], lire_expr (c::q))
+    | "/" -> Op (Div, lire_expr [b], lire_expr (c::q))
+    | "%" -> Op (Mod, lire_expr [b], lire_expr (c::q))
     | _ -> failwith "Erreur de syntaxe: expression non reconnue"
-    with Failure e -> failwith e
+  |_ -> failwith ""
 
 
 
@@ -110,6 +117,22 @@ let rec lire_expr (l : string list) : expr =
       | "Div" ->
       | "Mod" ->  *)
 
+let read_cond (l : string list) : cond =
+  match l with 
+  |[] -> failwith "Liste vide"
+  let rec read_cond_aux acc line = 
+    match line with 
+    |[] -> acc
+    |x::xs -> match x with 
+    |"=" -> lire_expr (List.rev acc) Eq lire_expr xs
+    |"<>" -> lire_expr (List.rev acc) Ne lire_expr xs
+    |"<" -> lire_expr (List.rev acc) Lt lire_expr xs
+    |"<=" -> lire_expr (List.rev acc) Le lire_expr xs
+    |">" -> lire_expr (List.rev acc) Gt lire_expr xs
+    |">=" -> lire_expr (List.rev acc) Ge lire_expr xs
+    |_ -> read_cond_aux (x::acc) xs
+  in read_cond_aux [] l
+
 let rec read_instr (niv : int) (lines : (position * string) list) : (instr * (position * string) list) =
   match lines with 
   |[] -> failwith "Liste vide"
@@ -124,21 +147,29 @@ let rec read_instr (niv : int) (lines : (position * string) list) : (instr * (po
       let mots = create_mots s
       in match mots with 
         |[] -> failwith "Erreur de syntaxe:?????"
-        |y::ys ->match y with
+        |y::ys -> match y with
           |"COMMENT" -> read_instr niv xs
           |"READ" -> match ys with 
-            |[v] -> (Read v, xs)
+            |[v] -> Read v
             |_-> failwith "Erreur de syntaxe: READ ne supporte pas plus d'un paramètre"
-          |"PRINT" -> failwith "TODO"
-          |"IF" -> failwith "TODO"
-          |"WHILE" -> failwith "TODO"
+          |"PRINT" -> Print (lire_expr ys)
+          |"IF" -> If (read_cond ys, read_block xs)
+          |"WHILE" -> While (read_cond ys, read_block xs)
           |_ -> match ys with 
             |[] -> failwith "Erreur de syntaxe:?????"
             |z::zs -> if z <> ":=" then failwith "Erreur de syntaxe:?????" 
               else match zs with 
               |[] -> failwith "Erreur de syntaxe:?????"
               |_ -> (*(Set (y, lire_expr zs), xs)*) failwith "TODO"
+
+let rec read_block (niv : int) (lines : (position * string) list) : (instr * (position * string) list) =
+  match lines with 
+  |[] -> failwith "Liste vide"
+  |y::ys -> 
+  |_ -> failwith ""
+
 let read_polish (filename:string) : program = failwith "TODO"
+
   (* let polish = open_in filename
   in let lines = read_lines polish 
   in if lines = [] then []
