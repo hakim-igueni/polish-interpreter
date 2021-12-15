@@ -46,10 +46,28 @@ and block = (position * instr) list
 (** Un programme Polish est un bloc d'instructions *)
 type program = block
 
+module NameTable = Map.Make(String)
 
 (***********************************************************************)
 
+let env = NameTable.empty;; (* L'environnement de notre programme Polish *)
+
+let read_lines (file:in_channel) : (position * string)list = 
+  let rec read_lines_aux (file:in_channel) (acc:(position * string) list) (pos: position): (position * string) list =
+    try
+      let x = input_line file
+      in let y = String.trim x
+      in if String.length y = 0 then read_lines_aux file acc (pos+1) (* ignorer les lignes vides et celles ne contenant que des blancs*)
+      else read_lines_aux file ((pos, x)::acc) (pos+1)
+    with End_of_file -> acc
+  in List.rev (read_lines_aux file [] 1)
+
 let read_polish (filename:string) : program = failwith "TODO"
+  (* let polish = open_in filename
+  in let lines = read_lines polish 
+  in if lines = [] then []
+  else [0, Read "v"];; *)
+  
 
 let print_polish (p:program) : unit = failwith "TODO"
 
@@ -57,7 +75,7 @@ let eval_polish (p:program) : unit = failwith "TODO"
 
 let usage () =
   print_string "Polish : analyse statique d'un mini-langage\n";
-  print_string "usage: à documenter (TODO)\n"
+  print_string "usage: à documenter (TODO)\n" (* TODO *)
 
 let main () =
   match Sys.argv with
