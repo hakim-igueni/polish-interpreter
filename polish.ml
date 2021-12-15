@@ -77,7 +77,42 @@ let create_mots (s : string) : string list =
       else x::(create_mots_aux xs)
   in create_mots_aux (String.split_on_char ' ' (String.trim s))
 
-let lire_expr (l : string list) : expr = failwith "TODO"
+let rec lire_expr (l : string list) : expr =
+  match l with
+  | []| [_, _] -> failwith "Erreur de syntaxe: expression non reconnue"
+  | [x] -> let n_opt = int_of_string_opt x in match n_opt with
+    | Some n -> Num n
+    | None ->
+      if x <> "+" && x <> "-" && x <> "*" && x <> "/" && x <> "%" then Var x
+      else failwith "Erreur de syntaxe: expression non reconnue"
+  | a::b::c::q -> match a with
+    | "+" ->
+      try
+        Op (Add, lire_expr [b], lire_expr (c::q))
+      with Failure e -> match q with
+        | [] -> failwith "Erreur de syntaxe: expression non reconnue"
+        | ??? -> Op (Add, lire_expr [b], lire_expr (c::q))
+    | "-" ->
+    | "*" ->
+    | "/" ->
+    | "%" ->
+    | _ -> failwith "Erreur de syntaxe: expression non reconnue"
+
+
+
+
+
+
+      (* match x with
+      | "Add" -> match xs with
+        | [] -> failwith "Erreur de syntaxe: expression non reconnue"
+        | y::ys -> let n_opt' = int_of_string_opt y in match n_opt' with
+        | Some n -> Num n
+        | None -> match x with
+      | "Sub" ->
+      | "Mul" ->  
+      | "Div" ->
+      | "Mod" ->  *)
 
 let rec read_instr (niv : int) (lines : (position * string) list) : (instr * (position * string) list) =
   match lines with 
@@ -93,7 +128,7 @@ let rec read_instr (niv : int) (lines : (position * string) list) : (instr * (po
       let mots = create_mots s
       in match mots with 
         |[] -> failwith "Erreur de syntaxe:?????"
-        |y::ys -> match y with
+        |y::ys ->match y with
           |"COMMENT" -> read_instr niv xs
           |"READ" -> match ys with 
             |[v] -> (Read v, xs)
