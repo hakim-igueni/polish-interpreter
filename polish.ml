@@ -79,25 +79,21 @@ let create_mots (s : string) : string list =
 
 let rec lire_expr (l : string list) : expr =
   match l with
-  | []| [_, _] -> failwith "Erreur de syntaxe: expression non reconnue"
-  | [x] -> let n_opt = int_of_string_opt x in match n_opt with
+  | [] -> failwith "Erreur de syntaxe: expression non reconnue"
+  | [x] -> let n_opt = int_of_string_opt x 
+    in match n_opt with
     | Some n -> Num n
     | None ->
       if x <> "+" && x <> "-" && x <> "*" && x <> "/" && x <> "%" then Var x
-      else failwith "Erreur de syntaxe: expression non reconnue"
+      else failwith "Erreur de syntaxe: expression non reconnue" 
   | a::b::c::q -> match a with
-    | "+" ->
-      try
-        Op (Add, lire_expr [b], lire_expr (c::q))
-      with Failure e -> match q with
-        | [] -> failwith "Erreur de syntaxe: expression non reconnue"
-        | ??? -> Op (Add, lire_expr [b], lire_expr (c::q))
-    | "-" ->
+    | "+" -> Op (Add, lire_expr [b], lire_expr (c::q))
+    | "-" -> 
     | "*" ->
     | "/" ->
     | "%" ->
     | _ -> failwith "Erreur de syntaxe: expression non reconnue"
-
+    with Failure e -> failwith e
 
 
 
@@ -165,3 +161,4 @@ let main () =
 
 (* lancement de ce main *)
 let () = main ()
+int_of_string "9o"
