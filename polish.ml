@@ -78,44 +78,39 @@ let create_mots (s : string) : string list =
   in create_mots_aux (String.split_on_char ' ' (String.trim s))
 
 
-(** Vérifier si une chaine de caractères représente un entier *)
-let verify_int (x : string) : bool =
-  let x_opt = int_of_string_opt x 
-  in match x_opt with 
-  |Some n -> true
-  |None -> false
-
-
+(* (18 / 6) + 8 *)
 (** Lire une expression *)
-let rec lire_expr (l : string list) : expr =
-  match l with
-  | [] -> failwith "Erreur de syntaxe: expression non reconnue"
-  | [x] -> if verify_int (x) then Num (int_of_string x) else
-      if (x <> "+" && x <> "-" && x <> "*" && x <> "/" && x <> "%") then (Var x
-      else failwith "Erreur de syntaxe: expression non reconnue" 
-  |a::b::c::q -> match a with 
-    | "+" -> Op (Add, lire_expr [b], lire_expr (c::q)) 
-    | "-" -> Op (Sub, lire_expr [b], lire_expr (c::q))
-    | "*" -> Op (Mul, lire_expr [b], lire_expr (c::q))
-    | "/" -> Op (Div, lire_expr [b], lire_expr (c::q))
-    | "%" -> Op (Mod, lire_expr [b], lire_expr (c::q))
-    | _ -> failwith "Erreur de syntaxe: expression non reconnue"
-  |_ -> failwith ""
+(* 5 + 3 + 4 = ["+"; "5"; "+"; "3"; "4"] *)
+
+(* type expr_tree =
+  | Nil
+  | Node of expr_tree * string * expr_tree
 
 
+let rec load_expr_tree (l : string list) : unit =
+  let expr_stack = Stack.create()
+  in let f (e: string) : unit =
+    match e with
+    | "+" | "-" | "*" | "/" | "%" -> Stack.push e expr_stack
+    | _ -> let left = Stack.pop expr_stack in let right = Stack.pop expr_stack in 
+  in List.iter f l *)
 
+let rec read_expr (l : string list) : expr =
+  match l with 
+  | [x] ->
+    (match (int_of_string_opt x) with
+    | Some n -> Num n
+    | None -> if ((x <> "+") && (x <> "-") && (x <> "*") && (x <> "/") && (x <> "%")) then Var x
+      else failwith "Erreur de syntaxe: expression non reconnue")
+  | "+"::b::(c::q as ll) -> Op (Add, read_expr [b], read_expr ll)
+  | "-"::b::(c::q as ll) -> Op (Sub, read_expr [b], read_expr ll)
+  | "*"::b::(c::q as ll) -> Op (Mul, read_expr [b], read_expr ll)
+  | "/"::b::(c::q as ll) -> Op (Div, read_expr [b], read_expr ll)
+  | "%"::b::(c::q as ll) -> Op (Mod, read_expr [b], read_expr ll)
+  | _ -> failwith "Erreur de syntaxe: expression non reconnue";;
 
+read_expr ["+"; "+"; "3"; "4"; "5"];;
 
-      (* match x with
-      | "Add" -> match xs with
-        | [] -> failwith "Erreur de syntaxe: expression non reconnue"
-        | y::ys -> let n_opt' = int_of_string_opt y in match n_opt' with
-        | Some n -> Num n
-        | None -> match x with
-      | "Sub" ->
-      | "Mul" ->  
-      | "Div" ->
-      | "Mod" ->  *)
 
 let read_cond (l : string list) : cond =
   match l with 
@@ -124,12 +119,12 @@ let read_cond (l : string list) : cond =
     match line with 
     |[] -> acc
     |x::xs -> match x with 
-    |"=" -> lire_expr (List.rev acc) Eq lire_expr xs
-    |"<>" -> lire_expr (List.rev acc) Ne lire_expr xs
-    |"<" -> lire_expr (List.rev acc) Lt lire_expr xs
-    |"<=" -> lire_expr (List.rev acc) Le lire_expr xs
-    |">" -> lire_expr (List.rev acc) Gt lire_expr xs
-    |">=" -> lire_expr (List.rev acc) Ge lire_expr xs
+    |"=" -> read_expr (List.rev acc) Eq read_expr xs
+    |"<>" -> read_expr (List.rev acc) Ne read_expr xs
+    |"<" -> read_expr (List.rev acc) Lt read_expr xs
+    |"<=" -> read_expr (List.rev acc) Le read_expr xs
+    |">" -> read_expr (List.rev acc) Gt read_expr xs
+    |">=" -> read_expr (List.rev acc) Ge read_expr xs
     |_ -> read_cond_aux (x::acc) xs
   in read_cond_aux [] l
 
@@ -152,7 +147,7 @@ let rec read_instr (niv : int) (lines : (position * string) list) : (instr * (po
           |"READ" -> match ys with 
             |[v] -> Read v
             |_-> failwith "Erreur de syntaxe: READ ne supporte pas plus d'un paramètre"
-          |"PRINT" -> Print (lire_expr ys)
+          |"PRINT" -> Print (read_expr ys)
           |"IF" -> If (read_cond ys, read_block xs)
           |"WHILE" -> While (read_cond ys, read_block xs)
           |_ -> match ys with 
@@ -160,7 +155,7 @@ let rec read_instr (niv : int) (lines : (position * string) list) : (instr * (po
             |z::zs -> if z <> ":=" then failwith "Erreur de syntaxe:?????" 
               else match zs with 
               |[] -> failwith "Erreur de syntaxe:?????"
-              |_ -> (*(Set (y, lire_expr zs), xs)*) failwith "TODO"
+              |_ -> (*(Set (y, read_expr zs), xs)*) failwith "TODO"
 
 let rec read_block (niv : int) (lines : (position * string) list) : (instr * (position * string) list) =
   match lines with 
