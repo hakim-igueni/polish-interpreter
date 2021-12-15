@@ -89,20 +89,17 @@ let verify_int (x : string) : bool =
 (** Lire une expression *)
 let rec lire_expr (l : string list) : expr =
   match l with
-  | [] -> failwith "Erreur de syntaxe: expression non reconnue"
-  | [x] -> if verify_int (x) then Num (int_of_string x) else
-      if (x <> "+" && x <> "-" && x <> "*" && x <> "/" && x <> "%") then (Var x
+  | [x] -> if verify_int x then Num (int_of_string x) else
+      if (x <> "+") && (x <> "-") && (x <> "*") && (x <> "/") && (x <> "%") then Var x
       else failwith "Erreur de syntaxe: expression non reconnue" 
-  |a::b::c::q -> match a with 
+  |a::b::c::q -> (match a with 
     | "+" -> Op (Add, lire_expr [b], lire_expr (c::q)) 
     | "-" -> Op (Sub, lire_expr [b], lire_expr (c::q))
     | "*" -> Op (Mul, lire_expr [b], lire_expr (c::q))
     | "/" -> Op (Div, lire_expr [b], lire_expr (c::q))
     | "%" -> Op (Mod, lire_expr [b], lire_expr (c::q))
-    | _ -> failwith "Erreur de syntaxe: expression non reconnue"
+    | _ -> failwith "Erreur de syntaxe: expression non reconnue")
   |_ -> failwith ""
-
-
 
 
 
@@ -118,21 +115,19 @@ let rec lire_expr (l : string list) : expr =
       | "Mod" ->  *)
 
 let read_cond (l : string list) : cond =
-  match l with 
-  |[] -> failwith "Liste vide"
   let rec read_cond_aux acc line = 
     match line with 
-    |[] -> acc
+    |[] -> failwith ""
     |x::xs -> match x with 
-    |"=" -> lire_expr (List.rev acc) Eq lire_expr xs
-    |"<>" -> lire_expr (List.rev acc) Ne lire_expr xs
-    |"<" -> lire_expr (List.rev acc) Lt lire_expr xs
-    |"<=" -> lire_expr (List.rev acc) Le lire_expr xs
-    |">" -> lire_expr (List.rev acc) Gt lire_expr xs
-    |">=" -> lire_expr (List.rev acc) Ge lire_expr xs
+    |"=" -> (lire_expr (List.rev acc), Eq, lire_expr xs)
+    |"<>" -> (lire_expr (List.rev acc), Ne, lire_expr xs)
+    |"<" -> (lire_expr (List.rev acc), Lt, lire_expr xs)
+    |"<=" -> (lire_expr (List.rev acc), Le, lire_expr xs)
+    |">" -> (lire_expr (List.rev acc), Gt, lire_expr xs)
+    |">=" -> (lire_expr (List.rev acc), Ge, lire_expr xs)
     |_ -> read_cond_aux (x::acc) xs
   in read_cond_aux [] l
-
+read_cond ["+";"x";"2";"<";"h"]
 let rec read_instr (niv : int) (lines : (position * string) list) : (instr * (position * string) list) =
   match lines with 
   |[] -> failwith "Liste vide"
