@@ -52,13 +52,12 @@ module NameTable = Map.Make(String)
 
 let env = NameTable.empty;; (* L'environnement de notre programme Polish *)
 
+(** Lire le fichier en entrée et extraire toutes ses lignes en couplant chaque ligne à son numéro de ligne *)
 let read_lines (file:in_channel) : (position * string)list = 
   let rec read_lines_aux (file:in_channel) (acc:(position * string) list) (pos: position): (position * string) list =
     try
       let x = input_line file
-      in let y = String.trim x
-      in if String.length y = 0 then read_lines_aux file acc (pos+1) (* ignorer les lignes vides et celles ne contenant que des blancs*)
-      else read_lines_aux file ((pos, x)::acc) (pos+1)
+      in read_lines_aux file ((pos, x)::acc) (pos+1)
     with End_of_file -> acc
   in List.rev (read_lines_aux file [] 1)
 
