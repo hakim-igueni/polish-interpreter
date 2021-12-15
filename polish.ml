@@ -53,7 +53,7 @@ module NameTable = Map.Make(String)
 let env = NameTable.empty;; (* L'environnement de notre programme Polish *)
 
 (** Lire le fichier en entrée et extraire toutes ses lignes en couplant chaque ligne à son numéro de ligne *)
-let read_lines (file:in_channel) : (position * string)list = 
+let read_lines (file:in_channel) : (position * string) list = 
   let rec read_lines_aux (file:in_channel) (acc:(position * string) list) (pos: position): (position * string) list =
     try
       let x = input_line file
@@ -61,12 +61,58 @@ let read_lines (file:in_channel) : (position * string)list =
     with End_of_file -> acc
   in List.rev (read_lines_aux file [] 1)
 
+let nb_indentations (line : string) : int =
+  let mots = String.split_on_char ' ' line
+  in let rec nb_indentations_aux mots nb =
+    match mots with 
+    |[] -> nb
+    |m::ms -> if m = "" then nb_indentations_aux ms (nb+1) else nb
+  in nb_indentations_aux mots 0
+
+(** Créer à partir d'une chaine donnée, une liste de mots en supprimant tout les blancs qui y figurent *)
+let create_mots (s : string) : string list = 
+  let rec create_mots_aux l = match l with 
+    |[] -> []
+    |x::xs -> if x = "" then create_mots_aux xs 
+      else x::(create_mots_aux xs)
+  in create_mots_aux (String.split_on_char ' ' (String.trim s))
+
+let lire_expr (l : string list) : expr = failwith "TODO"
+
+let rec read_instr (niv : int) (lines : (position * string) list) : (instr * (position * string) list) =
+  match lines with 
+  |[] -> failwith "Liste vide"
+  |x::xs -> 
+    match x with p, s ->
+      if String.length (String.trim s) = 0 then read_instr niv xs (*Ignorer les lignes vides ou ne contenant que des blancs*)
+      else 
+      let nb_ind = nb_indentations s
+      in if nb_ind mod 2 <> 0 then failwith "Erreur de syntaxe: nombre d'indentations impair"
+      else if (nb_ind/2) <> niv then failwith "Erreur de syntaxe: nombre d'indentations non respecté"  
+      else 
+      let mots = create_mots s
+      in match mots with 
+        |[] -> failwith "Erreur de syntaxe:?????"
+        |y::ys -> match y with
+          |"COMMENT" -> read_instr niv xs
+          |"READ" -> match ys with 
+            |[v] -> (Read v, xs)
+            |_-> failwith "Erreur de syntaxe: READ ne supporte pas plus d'un paramètre"
+          |"PRINT" -> failwith "TODO"
+          |"IF" -> failwith "TODO"
+          |"WHILE" -> failwith "TODO"
+          |_ -> match ys with 
+            |[] -> failwith "Erreur de syntaxe:?????"
+            |z::zs -> if z <> ":=" then failwith "Erreur de syntaxe:?????" 
+              else match zs with 
+              |[] -> failwith "Erreur de syntaxe:?????"
+              |_ -> (*(Set (y, lire_expr zs), xs)*) failwith "TODO"
 let read_polish (filename:string) : program = failwith "TODO"
   (* let polish = open_in filename
   in let lines = read_lines polish 
   in if lines = [] then []
   else [0, Read "v"];; *)
-  
+
 
 let print_polish (p:program) : unit = failwith "TODO"
 
