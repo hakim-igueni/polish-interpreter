@@ -152,13 +152,17 @@ let rec read_instr (pos: position) (niv : int) (lines : (position * string) list
       in if nb_ind mod 2 <> 0 then failwith "Erreur de syntaxe: nombre d'indentations impair"
       else if (nb_ind/2) <> niv then failwith "Erreur de syntaxe: nombre d'indentations non respecté"  
       else let mots = create_mots s in match mots with 
-        |[] -> failwith "Erreur de syntaxe:?????"
+        |[] -> failwith "Erreur de syntaxe:?????" (* ligne vide *)
         |y::ys -> match y with
-          |"COMMENT" -> read_instr pos niv xs
+          |"COMMENT" -> read_instr pos niv xs (* pourquoi pas pos+1 *)
           |"READ" -> (match ys with 
-            |[v] -> (pos, Read (v), xs)
+            |[v] -> (match (int_of_string_opt v) with
+            | Some n -> failwith "Erreur de syntaxe: READ ne supporte pas un entier en paramètre"
+            | None -> (pos, Read (v), xs)) (*(pos, Read (v), xs) *)
             |_-> failwith "Erreur de syntaxe: READ ne supporte pas plus d'un paramètre")
-          |"PRINT" -> (pos, Print (read_expr ys), xs)
+          |"PRINT" -> let exp, reste = read_expr ys in 
+                      if reste = [] then (pos, Print (exp), xs)
+                      else failwith "Erreur de syntaxe: PRINT ne supporte pas plus d'une expression"
           |"IF" ->
             let condition = read_cond ys
             in let (new_pos1, bloc1, reste1) = read_block (pos+1) (niv+1) xs
@@ -171,9 +175,12 @@ let rec read_instr (pos: position) (niv : int) (lines : (position * string) list
           |_ -> (match ys with 
             |[] -> failwith "Erreur de syntaxe:?????"
             |z::zs -> if z <> ":=" then failwith "Erreur de syntaxe:?????" 
-              else (match zs with 
+              (*else (match zs with 
               |[] -> failwith "Erreur de syntaxe:?????"
-              |_ -> (*(Set (y, read_expr zs), xs)*) failwith "TODO"))
+              |_ -> (Set (y, read_expr zs), xs)* failwith "TODO"*)
+              else let exp, reste = read_expr zs in 
+              if reste = [] then (pos, Set(y, exp), xs)
+              else failwith "Erreur de syntaxe: On peut pas affecter plus d'une expression")
 
 and read_block (pos: position) (niv : int) (lines : (position * string) list) : (position * block * (position * string) list) =
   match lines with 
@@ -181,8 +188,9 @@ and read_block (pos: position) (niv : int) (lines : (position * string) list) : 
   | _ ->
     let (new_pos1, instruction, reste1) = read_instr pos niv lines
     in let (new_pos2, bloc, reste2) = read_block (new_pos1+1) niv reste1
-    in (new_pos2, ((pos, instruction)::bloc), reste2)
+    in (new_pos2, ((pos, instruction)::bloc), reste2);;
 
+read_block 1 0 [(1, "IF x = + + 3 4 5");(2, "  READ n");(3, "  PRINT n")];;
 let read_program (lines : (position * string) list) : program =
   match lines with 
   | [] -> failwith "Programme vide"
