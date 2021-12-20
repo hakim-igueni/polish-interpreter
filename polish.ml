@@ -77,42 +77,55 @@ let create_mots (s : string) : string list =
       else x::(create_mots_aux xs)
   in create_mots_aux (String.split_on_char ' ' (String.trim s))
 
+let operateur (s : string) : op option =
+  if s = "+" then Some Add
+  else if s = "-" then Some Sub
+  else if s = "*" then Some Mul
+  else if s = "/" then Some Div
+  else if s = "%" then Some Mod
+  else None;;
 
-(* (18 / 6) + 8 *)
 (** Lire une expression *)
-(* 5 + 3 + 4 = ["+"; "5"; "+"; "3"; "4"] *)
-
-(* type expr_tree =
-  | Nil
-  | Node of expr_tree * string * expr_tree
-
-
-let rec load_expr_tree (l : string list) : unit =
-  let expr_stack = Stack.create()
-  in let f (e: string) : unit =
-    match e with
-    | "+" | "-" | "*" | "/" | "%" -> Stack.push e expr_stack
-    | _ -> let left = Stack.pop expr_stack in let right = Stack.pop expr_stack in 
-  in List.iter f l *)
-
-let rec read_expr (l : string list) : expr =
-  match l with 
-  | [x] ->
-    (match (int_of_string_opt x) with
-    | Some n -> Num n
-    | None -> if ((x <> "+") && (x <> "-") && (x <> "*") && (x <> "/") && (x <> "%")) then Var x
-      else failwith "Erreur de syntaxe: expression non reconnue")
-  | "+"::b::(c::q as ll) -> Op (Add, read_expr [b], read_expr ll)
-  | "-"::b::(c::q as ll) -> Op (Sub, read_expr [b], read_expr ll)
-  | "*"::b::(c::q as ll) -> Op (Mul, read_expr [b], read_expr ll)
-  | "/"::b::(c::q as ll) -> Op (Div, read_expr [b], read_expr ll)
-  | "%"::b::(c::q as ll) -> Op (Mod, read_expr [b], read_expr ll)
-  | _ -> failwith "Erreur de syntaxe: expression non reconnue";;
+let rec read_expr (l : string list) : (expr * string list) = match l with 
+  | [] -> failwith "Erreur de syntaxe: expression vide"
+  | hd :: tl ->
+    (match operateur hd with
+      | None ->
+        (match (int_of_string_opt hd) with
+          | Some n -> Num n, tl
+          | None -> Var hd, tl)
+      | Some op -> 
+        let exp1, reste1 = read_expr tl
+        in let exp2, reste2 = read_expr reste1
+        in Op (op, exp1, exp2), reste2);;
 
 read_expr ["+"; "+"; "3"; "4"; "5"];;
 
+let condition (s : string) : comp option =
+  if s = "=" then Some Eq
+  else if s = "<>" then Some Ne
+  else if s = "<" then Some Lt
+  else if s = "<=" then Some Le
+  else if s = ">" then Some Gt
+  else if s = ">=" then Some Ge
+  else None;;
 
+(** Lire une condition *)
 let read_cond (l : string list) : cond =
+  let exp1, reste1 = read_expr l
+  in match reste1 with
+  | [] -> failwith "Erreur de syntaxe: condition non valide"
+  | hd :: tl ->
+    (match condition hd with
+      | None -> failwith "Erreur de syntaxe: condition non valide"
+      | Some comp ->
+        let exp2, reste2 = read_expr tl
+        in if reste2 = [] then (exp1, comp, exp2)
+        else failwith "Erreur de syntaxe: condition non reconnue");;
+
+read_expr ["1"; "="; "3"; "4"];;
+
+(* let read_cond (l : string list) : cond =
   let rec read_cond_aux acc line = 
     match line with 
     |[] -> failwith ""
@@ -124,9 +137,9 @@ let read_cond (l : string list) : cond =
     |">" -> (read_expr (List.rev acc), Gt, read_expr xs)
     |">=" -> (read_expr (List.rev acc), Ge, read_expr xs)
     |_ -> read_cond_aux (x::acc) xs
-  in read_cond_aux [] l;;
+  in read_cond_aux [] l;; *)
 
-read_cond ["+";"x";"2";"<";"h"];;
+read_expr ["+";"x";"2";"<";"h"];;
 
 let rec read_instr (pos: position) (niv : int) (lines : (position * string) list) : (position * instr * (position * string) list) =
   match lines with 
