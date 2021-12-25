@@ -192,6 +192,8 @@ let read_polish (filename:string) : program =
   in let lines = read_lines polish_program
   in read_program lines;;
 
+read_polish "prog.p";;
+
 let print_polish (p:program) : unit = failwith "TODO";;
 
 let op_to_string op = 
@@ -201,24 +203,26 @@ let op_to_string op =
   |Mul -> print_string "* "
   |Div -> print_string "/ "
   |Mod -> print_string "% "
-let get_n n env = 
-  try Hashtbl.find env n with
-  Not_found -> failwith ""
-let eval_expr (exp: expr) (envir : env) = 
+let find (var_name:name) (env:int NameTable.t) : int = 
+  try NameTable.find var_name env with
+  Not_found -> failwith ("La variable " ^ var_name ^ " n'existe pas dans l'envirronnement")
+let rec eval_expr (exp: expr) (envir : 'a NameTable.t) : int = 
   match exp with 
-  |Num (n) -> n
-  |Var (v) -> get_n v envir
-  |Op (op, expr1, expr2) -> (match op with 
-    |Add -> (eval_expr expr1 envir) + (eval_expr expr2 envir)
-    |Sub -> (eval_expr expr1 envir) - (eval_expr expr2 envir)
-    |Mul -> (eval_expr expr1 envir) * (eval_expr expr2 envir)
-    |Div -> if (eval_expr expr2 envir) <> 0 then (eval_expr expr1 envir) / (eval_expr expr2 envir)
-      else failwith "Division par zero"
-    |Mod -> if (eval_expr expr2 envir) <> 0 then (eval_expr expr1 envir) mod (eval_expr expr2 envir)
-      else failwith "Modulo par zero")
-    |_ -> failwith ""
-let eval_cond (cond:cond) (envir:env) =
-  match cond with
+  | Num (n) -> n
+  | Var (v) -> find v envir
+  | Op (op, expr1, expr2) -> (match op with 
+    | Add -> (eval_expr expr1 envir) + (eval_expr expr2 envir)
+    | Sub -> (eval_expr expr1 envir) - (eval_expr expr2 envir)
+    | Mul -> (eval_expr expr1 envir) * (eval_expr expr2 envir)
+    | Div ->
+      let expr2_eval = eval_expr expr2 envir in if expr2_eval <> 0 then (eval_expr expr1 envir) / expr2_eval
+      else failwith "Erreur d'évaluation: Division par zéro"
+    | Mod ->
+      let expr2_eval = eval_expr expr2 envir in if expr2_eval <> 0 then (eval_expr expr1 envir) mod expr2_eval
+      else failwith "Erreur d'évaluation: Modulo par zéro");;
+
+let eval_cond (condition:cond) (envir : 'a NameTable.t) : bool =
+  match condition with
   |(expr1, comp, expr2) -> match comp with
     | Eq -> (eval_expr expr1 envir) = (eval_expr expr2 envir)
     | Ne -> (eval_expr expr1 envir) <> (eval_expr expr2 envir)
@@ -227,18 +231,42 @@ let eval_cond (cond:cond) (envir:env) =
     | Gt -> (eval_expr expr1 envir) > (eval_expr expr2 envir)
     | Ge -> (eval_expr expr1 envir) >= (eval_expr expr2 envir)
 
-let eval_polish (p:program) : unit = failwith "TODO"
+let eval_polish (p:program) : unit = 
+  let rec eval_env : int NameTable.t = NameTable.empty
+  in let rec eval_polish_aux (p:program) : int NameTable.t =
+  match p with
+  | [] -> ()
+  | (pos, Set (v, exp))::reste -> NameTable.update v (fun a -> Some (eval_expr exp eval_env)) env
+  | (pos, Read (name))::reste -> let n = read_int () in NameTable.update name (fun a -> Some n) env
+  | (pos, Print (exp))::reste -> failwith "TODO"
+  | (pos, If (cond, bloc1, bloc2))::reste -> failwith "TODO"
+  | (pos, While (cond, bloc))::reste -> failwith "TODO"
+  in eval_polish_aux p;;
+  
+let simpl_polish (p:program) : unit = failwith "TODO"
+
+let vars_polish (p:program) : unit = failwith "TODO"
+
+let sign_polish (p:program) : unit = failwith "TODO"
 
 let usage () =
   print_string "Polish : analyse statique d'un mini-langage\n";
-  print_string "usage: à documenter (TODO)\n" (* TODO *)
+  print_string "usage: run [options] <file>\n telle que les options sont:\n
+  -reprint : lire et réafficher le programme polish\n
+  -eval : évaluer le programme polish\n
+  -simpl : simplifier un programme polish en effectuant la propagation des constantes et l'élimination des blocs morts\n
+  -vars : TODO: \n
+  -sign : TODO: \n";;
+
 
 let main () =
   match Sys.argv with
   | [|_;"-reprint";file|] -> print_polish (read_polish file)
   | [|_;"-eval";file|] -> eval_polish (read_polish file)
+  | [|_;"-simpl";file|] -> simpl_polish (read_polish file)
+  | [|_;"-vars";file|] -> simpl_polish (read_polish file)
+  | [|_;"-sign";file|] -> simpl_polish (read_polish file)
   | _ -> usage ()
 
 (* lancement de ce main *)
-let () = main ()
-int_of_string "9o"
+let () = main ();;
