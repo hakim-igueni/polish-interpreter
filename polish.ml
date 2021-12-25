@@ -50,7 +50,7 @@ module NameTable = Map.Make(String)
 
 (***********************************************************************)
 
-let env = NameTable.empty;; (* L'environnement de notre programme Polish *)
+let env : int NameTable.t = NameTable.empty;; (* L'environnement de notre programme Polish *)
 
 (** Lire le fichier en entrée et extraire toutes ses lignes en couplant chaque ligne à son numéro de ligne *)
 let read_lines (file:in_channel) : (position * string) list = 
@@ -62,7 +62,8 @@ let read_lines (file:in_channel) : (position * string) list =
   in List.rev (read_lines_aux file [] 1)
 
 let nb_indentations (line : string) : int =
-  let mots = String.split_on_char ' ' line
+  if line = "" then 0
+  else let mots = String.split_on_char ' ' line
   in let rec nb_indentations_aux mots nb =
     match mots with 
     |[] -> nb
@@ -86,8 +87,8 @@ let operateur (s : string) : op option =
   else None;;
 
 (** Lire une expression *)
-let rec read_expr (l : string list) : (expr * string list) = match l with 
-  | [] -> failwith "Erreur de syntaxe: expression vide"
+let rec read_expr (pos : position) (l : string list) : (expr * string list) = match l with 
+  | [] -> failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe: expression non valide")
   | hd :: tl ->
     (match operateur hd with
       | None ->
@@ -95,11 +96,9 @@ let rec read_expr (l : string list) : (expr * string list) = match l with
           | Some n -> Num n, tl
           | None -> Var hd, tl)
       | Some op -> 
-        let exp1, reste1 = read_expr tl
-        in let exp2, reste2 = read_expr reste1
-        in Op (op, exp1, exp2), reste2);;
-
-read_expr ["+"; "+"; "3"; "4"; "5"];;
+        let exp1, reste1 = read_expr pos tl
+        in let exp2, reste2 = read_expr pos reste1
+        in (Op (op, exp1, exp2), reste2));;
 
 let condition (s : string) : comp option =
   if s = "=" then Some Eq
@@ -111,102 +110,89 @@ let condition (s : string) : comp option =
   else None;;
 
 (** Lire une condition *)
-let read_cond (l : string list) : cond =
-  let exp1, reste1 = read_expr l
+let read_cond (pos : position) (l : string list) : cond =
+  let exp1, reste1 = read_expr pos l
   in match reste1 with
-  | [] -> failwith "Erreur de syntaxe: condition non valide"
+  | [] -> failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe: condition non valide")
   | hd :: tl ->
     (match condition hd with
-      | None -> failwith "Erreur de syntaxe: condition non valide"
+      | None -> failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe: condition non valide")
       | Some comp ->
-        let exp2, reste2 = read_expr tl
+        let exp2, reste2 = read_expr pos tl
         in if reste2 = [] then (exp1, comp, exp2)
-        else failwith "Erreur de syntaxe: condition non reconnue");;
+        else failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe: condition non reconnue"))
 
-read_expr ["1"; "="; "3"; "4"];;
-
-(* let read_cond (l : string list) : cond =
-  let rec read_cond_aux acc line = 
-    match line with 
-    |[] -> failwith ""
-    |x::xs -> match x with 
-    |"=" -> (read_expr (List.rev acc), Eq, read_expr xs)
-    |"<>" -> (read_expr (List.rev acc), Ne, read_expr xs)
-    |"<" -> (read_expr (List.rev acc), Lt, read_expr xs)
-    |"<=" -> (read_expr (List.rev acc), Le, read_expr xs)
-    |">" -> (read_expr (List.rev acc), Gt, read_expr xs)
-    |">=" -> (read_expr (List.rev acc), Ge, read_expr xs)
-    |_ -> read_cond_aux (x::acc) xs
-  in read_cond_aux [] l;; *)
-
-read_expr ["+";"x";"2";"<";"h"];;
 
 let rec read_instr (pos: position) (niv : int) (lines : (position * string) list) : (position * instr * (position * string) list) =
   match lines with 
-  |[] -> failwith "Liste vide"
+  |[] -> failwith "Programme vide"
   |x::xs -> 
-    match x with p, s ->
-      if String.length (String.trim s) = 0 then read_instr pos niv xs (*Ignorer les lignes vides ou ne contenant que des blancs*)
-      else 
-      let nb_ind = nb_indentations s
-      in if nb_ind mod 2 <> 0 then failwith "Erreur de syntaxe: nombre d'indentations impair"
-      else if (nb_ind/2) <> niv then failwith "Erreur de syntaxe: nombre d'indentations non respecté"  
-      else let mots = create_mots s in match mots with 
-        |[] -> failwith "Erreur de syntaxe:?????" (* ligne vide *)
-        |y::ys -> match y with
-          |"COMMENT" -> read_instr pos niv xs (* pourquoi pas pos+1 *)
-          |"READ" -> (match ys with 
-            |[v] -> (match (int_of_string_opt v) with
-            | Some n -> failwith "Erreur de syntaxe: READ ne supporte pas un entier en paramètre"
-            | None -> (pos, Read (v), xs)) (*(pos, Read (v), xs) *)
-            |_-> failwith "Erreur de syntaxe: READ ne supporte pas plus d'un paramètre")
-          |"PRINT" -> let exp, reste = read_expr ys in 
-                      if reste = [] then (pos, Print (exp), xs)
-                      else failwith "Erreur de syntaxe: PRINT ne supporte pas plus d'une expression"
-          |"IF" ->
-            let condition = read_cond ys
+    match x with p, s -> 
+      let mots = create_mots s in match mots with 
+        | [] -> failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe:?????") (* ligne vide *)
+        | y::ys -> match y with
+          (* | "COMMENT" -> read_instr (pos+1) niv xs *)
+          | "READ" -> (match ys with 
+            |[v] -> if int_of_string_opt v = None && operateur v = None then (pos+1, Read (v), xs)
+              else failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe: le paramètre de READ doit être un nom de variable")
+            |_-> failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe: READ ne supporte pas plus d'un paramètre"))
+          | "PRINT" -> let exp, reste = read_expr pos ys in 
+                      if reste = [] then (pos+1, Print (exp), xs)
+                      else failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe: PRINT ne supporte pas plus d'une expression")
+          | "IF" ->
+            let condition = read_cond pos ys
             in let (new_pos1, bloc1, reste1) = read_block (pos+1) (niv+1) xs
-            in let (new_pos2, bloc2, reste2) = read_block (new_pos1+1) (niv+1) reste1
-            in (new_pos2, If (condition, bloc1, bloc2), reste2)
-          |"WHILE" ->
-            let condition = read_cond ys
-            in let (new_pos, bloc, reste) = read_block (pos+1) (niv+1) xs
+            in (match reste1 with
+              | [] -> (new_pos1, If (condition, bloc1, []), reste1)
+              | (p,s)::t ->
+                (if s = "ELSE" then
+                  (if t = [] then
+                    let (new_pos2, bloc2, reste2) = read_block (new_pos1+1) (niv+1) reste1
+                    in (new_pos2, If (condition, bloc1, bloc2), reste2)
+                  else failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe: le mot clé ELSE doit être tout seul dans la ligne"))
+                else
+                  let (new_pos2, bloc2, reste2) = read_block (new_pos1+1) (niv+1) reste1
+                  in (new_pos2, If (condition, bloc1, bloc2), reste2)))
+          | "WHILE" -> (* TODO: traiter le cas ou le bloc de while ou if ou else est vide *)
+            let condition = read_cond pos ys (* on lit la condition du while *)
+            in let (new_pos, bloc, reste) = read_block (pos+1) (niv+1) xs (* on lit le bloc du while *)
             in (new_pos, While (condition, bloc), reste)
-          |_ -> (match ys with 
-            |[] -> failwith "Erreur de syntaxe:?????"
-            |z::zs -> if z <> ":=" then failwith "Erreur de syntaxe:?????" 
-              (*else (match zs with 
-              |[] -> failwith "Erreur de syntaxe:?????"
-              |_ -> (Set (y, read_expr zs), xs)* failwith "TODO"*)
-              else let exp, reste = read_expr zs in 
-              if reste = [] then (pos, Set(y, exp), xs)
-              else failwith "Erreur de syntaxe: On peut pas affecter plus d'une expression")
+          | _ -> (match ys with 
+            | [] -> failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe:?????")
+            | ":="::zs ->
+              let exp, reste = read_expr pos zs
+              in (if reste = [] then (pos+1, Set(y, exp), xs)
+              else failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe: On peut pas affecter plus d'une expression"))
+            | _ -> failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe: instruction non reconnue !"))
 
 and read_block (pos: position) (niv : int) (lines : (position * string) list) : (position * block * (position * string) list) =
   match lines with 
-  | [] -> failwith "Bloc vide"
-  | _ ->
-    let (new_pos1, instruction, reste1) = read_instr pos niv lines
-    in let (new_pos2, bloc, reste2) = read_block (new_pos1+1) niv reste1
-    in (new_pos2, ((pos, instruction)::bloc), reste2);;
+  | [] -> (pos, [], [])
+  | (p, line)::resteLignes ->
+    let nb_ind = nb_indentations line
+    in if nb_ind mod 2 <> 0 then failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe: nombre d'indentations impair !")
+    else if (nb_ind/2) > niv then failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe: nombre d'indentations non respecté")
+    else if (nb_ind/2) < niv then (pos, [], lines)
+    else match String.split_on_char ' ' (String.trim line) with
+      | "COMMENT"::_ | [""] -> read_block (pos+1) niv resteLignes
+      | _ ->
+        let (new_pos1, instruction, reste1) = read_instr pos niv lines (* on lit la première instruction du bloc *)
+        in let (new_pos2, bloc, reste2) = read_block new_pos1 niv reste1 (* on lit le reste du bloc *)
+        in (new_pos2, ((pos, instruction)::bloc), reste2);;
 
-read_block 1 0 [(1, "IF x = + + 3 4 5");(2, "  READ n");(3, "  PRINT n")];;
 let read_program (lines : (position * string) list) : program =
   match lines with 
-  | [] -> failwith "Programme vide"
+  | [] -> []
   | _ ->
     let (new_pos, bloc, reste) = read_block 1 0 lines
     in bloc;;
 
 let read_polish (filename:string) : program =
-  let polish = open_in filename
-  in let lines = read_lines polish 
-  in if lines = [] then []
-  else read_program lines;;
+  let polish_program = open_in filename
+  in let lines = read_lines polish_program
+  in read_program lines;;
 
-
-let print_polish (p:program) : unit = failwith "TODO"
-
+let print_polish (p:program) : unit = failwith "TODO";;
 
 let op_to_string op = 
   match op with
