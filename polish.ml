@@ -122,7 +122,6 @@ let read_cond (pos : position) (l : string list) : cond =
         in if reste2 = [] then (exp1, comp, exp2)
         else failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe: condition non reconnue"))
 
-
 let rec read_instr (pos: position) (niv : int) (lines : (position * string) list) : (position * instr * (position * string) list) =
   match lines with 
   |[] -> failwith "Programme vide"
@@ -141,17 +140,8 @@ let rec read_instr (pos: position) (niv : int) (lines : (position * string) list
                       else failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe: la syntaxe de PRINT n'est pas respectée")
           | "IF" ->
             let condition = read_cond pos ys
-            in let (new_pos1, bloc1, reste1) = read_block (pos+1) (niv+1) xs
-            in (match reste1 with
-              | [] -> (new_pos1, If (condition, bloc1, []), [])
-              | (pp,ss)::reste2 -> let motss = create_mots ss in match motss with 
-                | [] -> read_instr (pos+1) niv reste2
-                | "ELSE" :: tl ->
-                  (if tl = [] then
-                      let (new_pos2, bloc2, reste3) = read_block (new_pos1+1) (niv+1) reste2 (* lire le bloc de ELSE *)
-                      in (new_pos2, If (condition, bloc1, bloc2), reste3)
-                  else failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe: le mot clé ELSE doit être tout seul dans la ligne"))
-                | _ -> (new_pos1, If (condition, bloc1, []), reste2))
+            in let (new_pos1, bloc_if, reste1) = read_block (pos+1) (niv+1) xs
+            in let (new_pos2, bloc_else, reste3) = read_else_block (new_pos1+1) niv reste1 in (new_pos2, If (condition, bloc_if, bloc_else), reste3)  
           | "WHILE" -> (* TODO: traiter le cas ou le bloc de while ou if ou else est vide *)
             let condition = read_cond pos ys (* on lit la condition du while *)
             in let (new_pos, bloc, reste) = read_block (pos+1) (niv+1) xs (* on lit le bloc du while *)
@@ -163,14 +153,25 @@ let rec read_instr (pos: position) (niv : int) (lines : (position * string) list
               in (if reste = [] then (pos+1, Set(y, exp), xs)
               else failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe: On peut pas affecter plus d'une expression"))
             | _ -> failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe: instruction non reconnue !"))
-
+and read_else_block (pos : position) (niv : int) (lines : (position * string) list) : (position * block * (position * string) list) =
+  match lines with
+    | [] -> (pos, [], []) (*(new_pos1, If (condition, bloc_if, []), [])*)
+    | (pp,ss)::reste2 ->
+      let motss = create_mots ss in (match motss with 
+        | [] -> read_else_block (pos+1) niv reste2
+        | "ELSE" :: tl ->
+          (if tl = [] then
+              let (new_pos2, bloc_else, reste3) = read_block (pos+1) (niv+1) reste2 (* lire le bloc de ELSE *)
+              in (new_pos2, bloc_else, reste3)
+          else failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe: le mot clé ELSE doit être tout seul dans la ligne"))
+        | _ -> (pos, [], reste2))
 and read_block (pos: position) (niv : int) (lines : (position * string) list) : (position * block * (position * string) list) =
   match lines with 
   | [] -> (pos, [], [])
   | (p, line)::resteLignes ->
     let nb_ind = nb_indentations line
     in if nb_ind mod 2 <> 0 then failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe: nombre d'indentations impair !")
-    else if (nb_ind/2) > niv then failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe: nombre d'indentations non respecté")
+    else if (nb_ind/2) > niv then failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe: nombre d'indentations non respecté >" ^ line)
     else if (nb_ind/2) < niv then (pos, [], lines)
     else match String.split_on_char ' ' (String.trim line) with
       | "COMMENT"::_ | [""] -> read_block (pos+1) niv resteLignes
@@ -226,7 +227,10 @@ let rec print_instr (inst : instr) (ind:int) : unit =
   | Set (v,expr) -> print_string(v ^ " := " );print_expr(expr);print_newline()
   | Read (v) -> print_string("READ "^v);print_newline()
   | Print(expr) -> print_string("PRINT ");print_expr(expr);print_newline()
-  | If (cond,block1,block2) -> print_string("IF ");print_cond(cond);print_program block1 (ind+2);print_program block2 (ind+2)
+  | If (cond,block1,block2) ->
+    print_string("IF "); print_cond(cond); print_newline();
+    print_program block1 (ind+2);
+    if (block2 <> []) then print_ind ind; print_string("ELSE\n"); print_program block2 (ind+2)
   | While(cond,block) -> print_string("WHILE ");print_cond(cond);print_newline();print_program block (ind+2)
 and print_program (p:program) (ind : int) : unit =
   match p with 
@@ -237,20 +241,8 @@ let print_polish (p:program) : unit =
     (* print_newline(); *)
     print_program p 0;;
   
-let p = read_polish "prog.p";;
-print_polish p;;
-
-print_polish [(2, Read "n"); (3, Set ("i", Num 1)); (4, Set ("r", Num 1));
-(6,
- While ((Var "i", Le, Num 5),
-  [(7, Set ("r", Op (Mul, Var "i", Var "r")));
-   (8, Set ("r", Op (Mul, Var "i", Var "r")));
-   (9,
-    While ((Var "i", Le, Num 8),
-     [(10, Set ("i", Op (Add, Var "i", Num 1)));
-      (11, Set ("i", Op (Add, Var "i", Num 1)))]));
-   (12, Print (Var "r"))]));
-(13, Print (Var "i"))];;
+(* let p = read_polish "prog.p";;
+print_polish p;; *)
 
 (* let eval_block block = 
   ;;  *)
@@ -262,8 +254,6 @@ print_polish [(2, Read "n"); (3, Set ("i", Num 1)); (4, Set ("r", Num 1));
   | If (cond,block1,block2) -> if eval_cond cond then eval_block block1 else eval_block2
   | While (cond,block) -> eval_while cond block
   |_ -> failwith "" *)
-
-read_polish "prog.p";;
 
 let find (var_name:name) (env:int NameTable.t) : int = 
   try NameTable.find var_name env with
@@ -332,9 +322,4 @@ let main () =
   | _ -> usage ()
 
 (* lancement de ce main *)
-<<<<<<< HEAD
-let () = main ()
-int_of_string "9o";;
-=======
 let () = main ();;
->>>>>>> 76104805d37f771fb2d95522764f8cee5feb9f42
