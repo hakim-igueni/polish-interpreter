@@ -137,11 +137,11 @@ let rec read_instr (pos: position) (niv : int) (lines : (position * string) list
             |_-> failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe: READ ne supporte pas plus d'un paramètre"))
           | "PRINT" -> let exp, reste = read_expr pos ys in 
                       if reste = [] then (pos+1, Print (exp), xs)
-                      else failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe: la syntaxe de PRINT n'est pas respectée")
+                      else failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe: la syntaxe de PRINT n'est pas respectée !")
           | "IF" ->
             let condition = read_cond pos ys
             in let (new_pos1, bloc_if, reste1) = read_block (pos+1) (niv+1) xs
-            in let (new_pos2, bloc_else, reste3) = read_else_block (new_pos1+1) niv reste1 in (new_pos2, If (condition, bloc_if, bloc_else), reste3)  
+            in let (new_pos2, bloc_else, reste3) = read_else (new_pos1+1) niv reste1 in (new_pos2, If (condition, bloc_if, bloc_else), reste3)  
           | "WHILE" -> (* TODO: traiter le cas ou le bloc de while ou if ou else est vide *)
             let condition = read_cond pos ys (* on lit la condition du while *)
             in let (new_pos, bloc, reste) = read_block (pos+1) (niv+1) xs (* on lit le bloc du while *)
@@ -153,16 +153,19 @@ let rec read_instr (pos: position) (niv : int) (lines : (position * string) list
               in (if reste = [] then (pos+1, Set(y, exp), xs)
               else failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe: On peut pas affecter plus d'une expression"))
             | _ -> failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe: instruction non reconnue !"))
-and read_else_block (pos : position) (niv : int) (lines : (position * string) list) : (position * block * (position * string) list) =
+and read_else (pos : position) (niv : int) (lines : (position * string) list) : (position * block * (position * string) list) =
   match lines with
     | [] -> (pos, [], []) (*(new_pos1, If (condition, bloc_if, []), [])*)
     | (pp,ss)::reste2 ->
       let motss = create_mots ss in (match motss with 
-        | [] -> read_else_block (pos+1) niv reste2
+        | [] -> read_else (pos+1) niv reste2
         | "ELSE" :: tl ->
           (if tl = [] then
-              let (new_pos2, bloc_else, reste3) = read_block (pos+1) (niv+1) reste2 (* lire le bloc de ELSE *)
-              in (new_pos2, bloc_else, reste3)
+            let nb_ind = nb_indentations ss
+            in if nb_ind mod 2 <> 0 then failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe: nombre d'indentations impair !")
+            else if (nb_ind/2) <> niv then failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe: nombre d'indentations non respecté !")
+            else let (new_pos2, bloc_else, reste3) = read_block (pos+1) (niv+1) reste2 (* lire le bloc de ELSE *)
+            in (new_pos2, bloc_else, reste3)
           else failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe: le mot clé ELSE doit être tout seul dans la ligne"))
         | _ -> (pos, [], reste2))
 and read_block (pos: position) (niv : int) (lines : (position * string) list) : (position * block * (position * string) list) =
@@ -171,7 +174,7 @@ and read_block (pos: position) (niv : int) (lines : (position * string) list) : 
   | (p, line)::resteLignes ->
     let nb_ind = nb_indentations line
     in if nb_ind mod 2 <> 0 then failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe: nombre d'indentations impair !")
-    else if (nb_ind/2) > niv then failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe: nombre d'indentations non respecté >" ^ line)
+    else if (nb_ind/2) > niv then failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe: nombre d'indentations non respecté !")
     else if (nb_ind/2) < niv then (pos, [], lines)
     else match String.split_on_char ' ' (String.trim line) with
       | "COMMENT"::_ | [""] -> read_block (pos+1) niv resteLignes
