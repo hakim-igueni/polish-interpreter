@@ -50,8 +50,6 @@ module NameTable = Map.Make(String)
 
 (***********************************************************************)
 
-let environment : int NameTable.t = NameTable.empty;; (* L'environnement de notre programme Polish *)
-
 (** Lire le fichier en entrée et extraire toutes ses lignes en couplant chaque ligne à son numéro de ligne *)
 let read_lines (file:in_channel) : (position * string) list = 
   let rec read_lines_aux (file:in_channel) (acc:(position * string) list) (pos: position): (position * string) list =
@@ -244,6 +242,7 @@ let print_polish (p:program) : unit =
     (* print_newline(); *)
     print_program p 0;;
   
+create_mots "PRINT      n"
 (* let p = read_polish "prog.p";;
 print_polish p;; *)
 
@@ -260,7 +259,7 @@ print_polish p;; *)
 
 let find (var_name:name) (env:int NameTable.t) : int = 
   try NameTable.find var_name env with
-  Not_found -> failwith ("La variable " ^ var_name ^ " n'existe pas dans l'envirronnement")
+  Not_found -> failwith ("La variable " ^ var_name ^ " n'existe pas dans l'environnement")
 
 let rec eval_expr (exp: expr) (envir : position NameTable.t) : int = 
   match exp with 
@@ -275,9 +274,9 @@ let rec eval_expr (exp: expr) (envir : position NameTable.t) : int =
       else failwith "Erreur d'évaluation: Division par zéro"
     | Mod ->
       let expr2_eval = eval_expr expr2 envir in if expr2_eval <> 0 then (eval_expr expr1 envir) mod expr2_eval
-      else failwith "Erreur d'évaluation: Modulo par zéro");;
+      else failwith "Erreur d'évaluation: Modulo par zéro");;(* TODO: ("Ligne " ^ string_of_int pos ^ ": Erreur d'évaluation: Modulo par zéro")*)
 
-let eval_cond (condition:cond) (envir : 'a NameTable.t) : bool =
+let eval_cond (condition:cond) (envir : int NameTable.t) : bool =
   match condition with
   |(expr1, comp, expr2) -> match comp with
     | Eq -> (eval_expr expr1 envir) = (eval_expr expr2 envir)
@@ -285,20 +284,27 @@ let eval_cond (condition:cond) (envir : 'a NameTable.t) : bool =
     | Lt -> (eval_expr expr1 envir) < (eval_expr expr2 envir)
     | Le -> (eval_expr expr1 envir) <= (eval_expr expr2 envir)
     | Gt -> (eval_expr expr1 envir) > (eval_expr expr2 envir)
-    | Ge -> (eval_expr expr1 envir) >= (eval_expr expr2 envir)
+    | Ge -> (eval_expr expr1 envir) >= (eval_expr expr2 envir);;
 
+eval_cond (Num (1),Eq,Num(2)) (NameTable.empty);;
+
+let environment : int NameTable.t = NameTable.empty;; (* L'environnement de notre programme Polish *)
 let eval_polish (p:program) : unit = 
-  let env : int NameTable.t = NameTable.empty
-  in let rec eval_polish_aux (p:program) (env : 'a NameTable.t) : unit = (*int NameTable.t =*)
+  let e : int NameTable.t = NameTable.empty
+  in let rec eval_polish_aux (p:program) (env : int NameTable.t) : int NameTable.t = (*int NameTable.t =*)
     match p with
-    | [] -> ()
-    | (pos, Set (v, exp))::reste -> eval_polish_aux p (NameTable.update v (fun a -> Some (eval_expr exp env)) env)
-    | (pos, Read (name))::reste -> let n = read_int () in eval_polish_aux p (NameTable.update name (fun a -> Some n) env)
-    | (pos, Print (exp))::reste -> print_int (eval_expr exp env); eval_polish_aux reste env 
-    | (pos, If (cond, bloc1, bloc2))::reste -> failwith "TODO"
-    | (pos, While (cond, bloc))::reste -> failwith "TODO"
-  in eval_polish_aux p env;;
-  
+    | [] -> env
+    | (pos, Set (v, exp))::reste -> eval_polish_aux reste (NameTable.update v (fun _ -> Some (eval_expr exp env)) env)
+    | (pos, Read (name))::reste -> print_string (name ^ "?"); eval_polish_aux reste (NameTable.update name (fun _ -> Some (read_int ())) env) (*;print_newline()*)
+    | (pos, Print (exp))::reste -> print_int (eval_expr exp env); print_newline (); eval_polish_aux reste env 
+    | (pos, If (cond, bloc1, bloc2))::reste -> let c = eval_cond cond env in if c then eval_polish_aux reste (eval_polish_aux bloc1 env) else eval_polish_aux reste (eval_polish_aux bloc2 env)
+    | (pos, While (cond, bloc))::reste -> eval_polish_aux reste (eval_while cond bloc env)
+  and eval_while (cond:cond) (bloc:program) (env : int NameTable.t) : int NameTable.t =
+    if eval_cond cond env then (eval_while cond bloc (eval_polish_aux bloc env)) else env
+  in let nothing (ee : int NameTable.t) : unit = () in nothing (eval_polish_aux p e);;
+
+(* let p = read_polish "prog.p";;
+eval_polish p;; *)
 let simpl_polish (p:program) : unit = failwith "TODO"
 
 let vars_polish (p:program) : unit = failwith "TODO"

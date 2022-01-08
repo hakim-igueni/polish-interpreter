@@ -1,18 +1,5 @@
 COMMENT Calcul de la factorielle
-READ n
-i := 1
-r := 1
-
-
-
-
-WHILE i <= n
-  r := * i r
-  WHILE i <= n
-    r := * i r
-    IF i <= 1
-      PRINT n
-    
-    i := + i 1
-    i := + i 1
-PRINT r
+n := 0
+WHILE 1 < 2
+  PRINT n
+  n := + n 1
