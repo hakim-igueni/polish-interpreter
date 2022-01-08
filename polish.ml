@@ -50,7 +50,7 @@ module NameTable = Map.Make(String)
 
 (***********************************************************************)
 
-let env : int NameTable.t = NameTable.empty;; (* L'environnement de notre programme Polish *)
+let environment : int NameTable.t = NameTable.empty;; (* L'environnement de notre programme Polish *)
 
 (** Lire le fichier en entrée et extraire toutes ses lignes en couplant chaque ligne à son numéro de ligne *)
 let read_lines (file:in_channel) : (position * string) list = 
@@ -62,7 +62,7 @@ let read_lines (file:in_channel) : (position * string) list =
   in List.rev (read_lines_aux file [] 1)
 
 let nb_indentations (line : string) : int =
-  if line = "" then 0
+  if String.split_on_char ' ' (String.trim line) = [""] then 0
   else let mots = String.split_on_char ' ' line
   in let rec nb_indentations_aux mots nb =
     match mots with 
@@ -138,21 +138,20 @@ let rec read_instr (pos: position) (niv : int) (lines : (position * string) list
             |_-> failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe: READ ne supporte pas plus d'un paramètre"))
           | "PRINT" -> let exp, reste = read_expr pos ys in 
                       if reste = [] then (pos+1, Print (exp), xs)
-                      else failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe: PRINT ne supporte pas plus d'une expression")
+                      else failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe: la syntaxe de PRINT n'est pas respectée")
           | "IF" ->
             let condition = read_cond pos ys
             in let (new_pos1, bloc1, reste1) = read_block (pos+1) (niv+1) xs
             in (match reste1 with
-              | [] -> (new_pos1, If (condition, bloc1, []), reste1)
-              | (p,s)::t ->
-                (if s = "ELSE" then
-                  (if t = [] then
-                    let (new_pos2, bloc2, reste2) = read_block (new_pos1+1) (niv+1) reste1
-                    in (new_pos2, If (condition, bloc1, bloc2), reste2)
+              | [] -> (new_pos1, If (condition, bloc1, []), [])
+              | (pp,ss)::reste2 -> let motss = create_mots ss in match motss with 
+                | [] -> read_instr (pos+1) niv reste2
+                | "ELSE" :: tl ->
+                  (if tl = [] then
+                      let (new_pos2, bloc2, reste3) = read_block (new_pos1+1) (niv+1) reste2 (* lire le bloc de ELSE *)
+                      in (new_pos2, If (condition, bloc1, bloc2), reste3)
                   else failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe: le mot clé ELSE doit être tout seul dans la ligne"))
-                else
-                  let (new_pos2, bloc2, reste2) = read_block (new_pos1+1) (niv+1) reste1
-                  in (new_pos2, If (condition, bloc1, bloc2), reste2)))
+                | _ -> (new_pos1, If (condition, bloc1, []), reste2))
           | "WHILE" -> (* TODO: traiter le cas ou le bloc de while ou if ou else est vide *)
             let condition = read_cond pos ys (* on lit la condition du while *)
             in let (new_pos, bloc, reste) = read_block (pos+1) (niv+1) xs (* on lit le bloc du while *)
@@ -193,7 +192,7 @@ let read_polish (filename:string) : program =
   in read_program lines;;
 
 let print_ind (ind:int) : unit =
-  print_string(String.make ind ' ')
+  print_string(String.make ind ' ');;
 
 let print_op (opr : op) : unit = 
   match opr with
@@ -201,7 +200,7 @@ let print_op (opr : op) : unit =
   |Sub -> print_string " - "
   |Mul -> print_string " * "
   |Div -> print_string " / "
-  |Mod -> print_string " % "
+  |Mod -> print_string " % ";;
 
 let rec print_expr (expr : expr) : unit =
   match expr with 
@@ -235,9 +234,11 @@ and print_program (p:program) (ind : int) : unit =
   |(pos,instr)::ps -> print_ind ind; print_instr instr ind;print_program ps ind
 
 let print_polish (p:program) : unit = 
-    print_newline();
+    (* print_newline(); *)
     print_program p 0;;
   
+let p = read_polish "prog.p";;
+print_polish p;;
 
 print_polish [(2, Read "n"); (3, Set ("i", Num 1)); (4, Set ("r", Num 1));
 (6,
@@ -267,7 +268,8 @@ read_polish "prog.p";;
 let find (var_name:name) (env:int NameTable.t) : int = 
   try NameTable.find var_name env with
   Not_found -> failwith ("La variable " ^ var_name ^ " n'existe pas dans l'envirronnement")
-let rec eval_expr (exp: expr) (envir : 'a NameTable.t) : int = 
+
+let rec eval_expr (exp: expr) (envir : position NameTable.t) : int = 
   match exp with 
   | Num (n) -> n
   | Var (v) -> find v envir
@@ -293,16 +295,16 @@ let eval_cond (condition:cond) (envir : 'a NameTable.t) : bool =
     | Ge -> (eval_expr expr1 envir) >= (eval_expr expr2 envir)
 
 let eval_polish (p:program) : unit = 
-  let rec eval_env : int NameTable.t = NameTable.empty
-  in let rec eval_polish_aux (p:program) : int NameTable.t =
-  match p with
-  | [] -> ()
-  | (pos, Set (v, exp))::reste -> NameTable.update v (fun a -> Some (eval_expr exp eval_env)) env
-  | (pos, Read (name))::reste -> let n = read_int () in NameTable.update name (fun a -> Some n) env
-  | (pos, Print (exp))::reste -> failwith "TODO"
-  | (pos, If (cond, bloc1, bloc2))::reste -> failwith "TODO"
-  | (pos, While (cond, bloc))::reste -> failwith "TODO"
-  in eval_polish_aux p;;
+  let env : int NameTable.t = NameTable.empty
+  in let rec eval_polish_aux (p:program) (env : 'a NameTable.t) : unit = (*int NameTable.t =*)
+    match p with
+    | [] -> ()
+    | (pos, Set (v, exp))::reste -> eval_polish_aux p (NameTable.update v (fun a -> Some (eval_expr exp env)) env)
+    | (pos, Read (name))::reste -> let n = read_int () in eval_polish_aux p (NameTable.update name (fun a -> Some n) env)
+    | (pos, Print (exp))::reste -> print_int (eval_expr exp env); eval_polish_aux reste env 
+    | (pos, If (cond, bloc1, bloc2))::reste -> failwith "TODO"
+    | (pos, While (cond, bloc))::reste -> failwith "TODO"
+  in eval_polish_aux p env;;
   
 let simpl_polish (p:program) : unit = failwith "TODO"
 
