@@ -400,6 +400,13 @@ let sign_sub (l1 : sign list) (l2 : sign list) : sign list =
     | Zero | Error -> s
   in sign_add l1 (List.map sign_negation l2);;
 
+let sign_mod (l1 : sign list) (l2 : sign list) : sign list =
+  let sign_mod_aux (s1 : sign) (s2 : sign) : sign list = match s1, s2 with
+    | Error, _ | _, Error | _, Zero -> [Error]
+    | Zero, s -> [Zero]
+    | s, _ -> [Zero; s]
+  in distribute_sign l1 l2 sign_mod_aux
+
 (*let find_sign (var_name:name) (env: (sign list) NameTable.t) : (sign list) = 
   try NameTable.find var_name env with
   Not_found -> failwith ("La variable " ^ var_name ^ " n'existe pas dans l'environnement")
