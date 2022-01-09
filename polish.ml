@@ -46,6 +46,8 @@ and block = (position * instr) list
 (** Un programme Polish est un bloc d'instructions *)
 type program = block
 
+type sign = Neg | Zero | Pos | Error
+
 module NameTable = Map.Make(String)
 
 (***********************************************************************)
@@ -305,12 +307,81 @@ let eval_polish (p:program) : unit =
 
 (* let p = read_polish "prog.p";;
 eval_polish p;; *)
-let simpl_polish (p:program) : unit = failwith "TODO"
+
+let rec simpl_expr (exp : expr) : expr =
+  match exp with 
+  | Num(v) -> exp
+  | Var(v) -> exp
+  | Op(Div, expr1, Num 0) -> Op (Div, simpl_expr expr1, Num 0)
+  | Op(Mod, expr1, Num 0) -> Op (Mod, simpl_expr expr1, Num 0)
+  | Op(Mul, expr1, Num 0) -> Num 0
+  | Op(Mul, Num 0, expr2) -> Num 0
+  | Op(Div, Num 0, expr2) -> Num 0
+  | Op(Mul, Num 1, expr) 
+  | Op(Mul, expr, Num 1) 
+  | Op(Add, Num 0, expr) 
+  | Op(Add, expr, Num 0) -> (simpl_expr expr)
+  | Op(op, Num x, Num y) -> (match op with 
+      |Add -> Num (x+y)
+      |Sub -> Num (x-y)
+      |Mul -> Num (x*y)
+      |Div -> Num (x/y)
+      |Mod -> Num (x mod y))
+  | Op(op,expr1,expr2) -> Op(op, simpl_expr expr1, simpl_expr expr2)
+
+let simpl_cond (c : cond) : cond =
+  match c with (exp1, comp, exp2) -> 
+    let exp1_simp = simpl_expr exp1 
+    in let exp2_simp = simpl_expr exp2 
+    in (exp1_simp, comp, exp2_simp) 
+let rec simpl_instr (inst : instr) : (instr * bool) =
+  match inst with 
+  | Set (v,expr) -> Set (v,simpl_expr expr), false
+  | Read (v) -> inst, false
+  | Print (expr) -> Print (simpl_expr expr), false
+  | If (cond,blockIf,blockElse) -> 
+      let cond_simp = simpl_cond cond 
+      in (match cond_simp with  
+        | (Num (v1), comp, Num (v2)) -> 
+          if eval_cond cond_simp environment then If (cond_simp, (simpl_program blockIf), []), true
+          else If (cond_simp, [], (simpl_program blockElse)), true
+        | _ -> If (cond_simp, simpl_program blockIf, simpl_program blockElse), false)
+  | While(cond,bloc) -> 
+    let cond_simp = simpl_cond cond 
+    in (match cond_simp with  
+    | (Num (v1), comp, Num (v2)) -> While (cond_simp, simpl_program bloc), not (eval_cond cond_simp environment) 
+    | _ -> While (cond_simp, simpl_program bloc), false)
+and simpl_program (p:program) : program =
+  match p with 
+  |[] -> []
+  |(pos,ins)::ps -> 
+    let ins_simp, can_be_deleted = simpl_instr ins
+    in if can_be_deleted then 
+      (match ins_simp with 
+       | If (_, b1, b2) -> (simpl_program b1) @ (simpl_program b2) @ (simpl_program ps)
+       | _ -> simpl_program ps)
+    else ((pos, ins_simp)::(simpl_program ps)) 
+let simpl_polish (p:program) : unit = print_polish (simpl_program p)
 
 let vars_polish (p:program) : unit = failwith "TODO"
 
-let sign_polish (p:program) : unit = failwith "TODO"
 
+(*let rec eval_sign_expr (exp : expr) (env : (sign list) NameTable.t) : (sign list) NameTable.t =
+
+let sign_polish (p:program) : unit =
+  let e : (sign list) NameTable.t = NameTable.empty
+  in let rec eval_sign_aux (p:program) (env : (sign list) NameTable.t) : (sign list) NameTable.t = 
+    match p with
+    | [] -> env
+    | (pos, Set (v, exp))::reste -> 
+        eval_sign_aux reste (NameTable.update v (fun _ -> Some (List.append (NameTable.find v env) eval_sign_expr)) env)
+    | (pos, Read (name))::reste -> print_string (name ^ "?"); eval_sign_aux reste (NameTable.update name (fun _ -> Some (read_int ())) env) ;print_newline()
+    | (pos, Print (exp))::reste -> print_int (eval_expr exp env); print_newline (); eval_sign_aux reste env 
+    | (pos, If (cond, bloc1, bloc2))::reste -> let c = eval_cond cond env in if c then eval_sign_aux reste (eval_sign_aux bloc1 env) else eval_sign_aux reste (eval_sign_aux bloc2 env)
+    | (pos, While (cond, bloc))::reste -> eval_sign_aux reste (eval_while cond bloc env)
+  and eval_while (cond:cond) (bloc:program) (env : (sign list) NameTable.t) : int NameTable.t =
+    if eval_cond cond env then (eval_while cond bloc (eval_sign_aux bloc env)) else env
+  in let nothing (ee : int NameTable.t) : unit = () in nothing (eval_sign_aux p e);;*)
 let usage () =
   print_string "Polish : analyse statique d'un mini-langage\n";
   print_string "usage: run [options] <file>\n telle que les options sont:\n
