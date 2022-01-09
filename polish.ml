@@ -369,10 +369,34 @@ let simpl_polish (p:program) : unit = print_polish (simpl_program p)
 
 let vars_polish (p:program) : unit = failwith "TODO";;
 
-(* let find_sign (var_name:name) (env: (sign list) NameTable.t) : (sign list) = 
+ let find_sign (var_name:name) (env: (sign list) NameTable.t) : (sign list) = 
   try NameTable.find var_name env with
-  Not_found -> failwith ("La variable " ^ var_name ^ " n'existe pas dans l'environnement")
-let rec eval_sign_expr (exp : expr) (env : (sign list) NameTable.t) : (sign list) NameTable.t =
+  Not_found -> failwith ("La variable " ^ var_name ^ " n'existe pas dans l'environnement");;
+
+let rec union (l1:sign list) (l2:sign list) : sign list =
+  match l2 with
+  | [] -> l1
+  | hd::tl ->
+    if List.mem hd l1 then union l1 tl else union (hd::l1) tl;;
+
+let sign_add (l1 : sign list) (l2 : sign list) : sign list =
+  let sign_add_aux (s1 : sign) (s2 : sign) : sign list = match s1, s2 with 
+    | Error, _ | _, Error -> [Error]
+    | Zero, s | s, Zero -> [s]
+    | Pos, Pos -> [Pos]
+    | Neg, Neg -> [Neg]
+    | Pos, Neg | Neg, Pos -> [Zero; Pos; Neg]
+  in let rec sign_add_aux2 s1 l =
+    match l with 
+    | [] -> []
+    | s2::q -> union (sign_add_aux s1 s2) (sign_add_aux2 s1 q)
+  in let rec sign_add_aux3 l1 l2 =
+    match l1 with 
+    | [] -> []
+    | s1::q1 -> union (sign_add_aux2 s1 l2) (sign_add_aux3 q1 l2)
+  in sign_add_aux3 l1 l2
+
+(*let rec eval_sign_expr (exp : expr) (env : (sign list) NameTable.t) : (sign list) NameTable.t =
   match exp with 
   | Num (n) -> env
   | Var (v) -> find_sign v env
@@ -385,10 +409,10 @@ let rec eval_sign_expr (exp : expr) (env : (sign list) NameTable.t) : (sign list
       else failwith "Erreur d'évaluation: Division par zéro"
     | Mod ->
       let expr2_eval = eval_expr expr2 envir in if expr2_eval <> 0 then (eval_expr expr1 envir) mod expr2_eval
-      else failwith "Erreur d'évaluation: Modulo par zéro");;(* TODO: ("Ligne " ^ string_of_int pos ^ ": Erreur d'évaluation: Modulo par zéro")*)
+      else failwith "Erreur d'évaluation: Modulo par zéro");;*)(* TODO: ("Ligne " ^ string_of_int pos ^ ": Erreur d'évaluation: Modulo par zéro")*)
 
 
-let sign_polish (p:program) : unit =
+(*let sign_polish (p:program) : unit =
   let e : (sign list) NameTable.t = NameTable.empty
   in let rec eval_sign_aux (p:program) (env : (sign list) NameTable.t) : (sign list) NameTable.t = 
     match p with
@@ -401,7 +425,7 @@ let sign_polish (p:program) : unit =
     | (pos, While (cond, bloc))::reste -> eval_sign_aux reste (eval_while cond bloc env)
   and eval_while (cond:cond) (bloc:program) (env : (sign list) NameTable.t) : int NameTable.t =
     if eval_cond cond env then (eval_while cond bloc (eval_sign_aux bloc env)) else env
-  in let nothing (ee : int NameTable.t) : unit = () in nothing (eval_sign_aux p e);;*) 
+  in let nothing (ee : int NameTable.t) : unit = () in nothing (eval_sign_aux p e);;*)
 let usage () =
   print_string "Polish : analyse statique d'un mini-langage\n";
   print_string "usage: run [options] <file>\n telle que les options sont:\n
