@@ -241,29 +241,13 @@ and print_program (p:program) (ind : int) : unit =
   |(pos,instr)::ps -> print_ind ind; print_instr instr ind;print_program ps ind
 
 let print_polish (p:program) : unit = 
-    (* print_newline(); *)
     print_program p 0;;
-  
-create_mots "PRINT      n"
-(* let p = read_polish "prog.p";;
-print_polish p;; *)
-
-(* let eval_block block = 
-  ;;  *)
-(* let eval_instr (instruction : instr) = 
-  match instruction with 
-  | Set (v,expr) -> let env = NameTable.add v (eval_expr expr) env
-  | Read (n) -> begin Printf.printf "%s = " n; let v = read_int() in let env = NameTable.add n v env; end
-  | Print (expr) -> Printf.printf "%s" (eval_expr expr)
-  | If (cond,block1,block2) -> if eval_cond cond then eval_block block1 else eval_block2
-  | While (cond,block) -> eval_while cond block
-  |_ -> failwith "" *)
 
 let find (var_name:name) (env:int NameTable.t) : int = 
   try NameTable.find var_name env with
   Not_found -> failwith ("La variable " ^ var_name ^ " n'existe pas dans l'environnement")
 
-let rec eval_expr (exp: expr) (envir : position NameTable.t) : int = 
+let rec eval_expr (exp: expr) (envir : int NameTable.t) : int = 
   match exp with 
   | Num (n) -> n
   | Var (v) -> find v envir
@@ -369,10 +353,6 @@ let simpl_polish (p:program) : unit = print_polish (simpl_program p)
 
 let vars_polish (p:program) : unit = failwith "TODO";;
 
- let find_sign (var_name:name) (env: (sign list) NameTable.t) : (sign list) = 
-  try NameTable.find var_name env with
-  Not_found -> failwith ("La variable " ^ var_name ^ " n'existe pas dans l'environnement");;
-
 let rec union (l1:sign list) (l2:sign list) : sign list =
   match l2 with
   | [] -> l1
@@ -413,10 +393,19 @@ let sign_div (l1 : sign list) (l2 : sign list) : sign list =
   | Zero | Error -> Error
   in sign_mul l1 (List.map sign_inverse l2);;
 
+let sign_sub (l1 : sign list) (l2 : sign list) : sign list =
+  let sign_negation s = match s with 
+    | Pos -> Neg
+    | Neg -> Pos
+    | Zero | Error -> s
+  in sign_add l1 (List.map sign_negation l2);;
 
-(*let rec eval_sign_expr (exp : expr) (env : (sign list) NameTable.t) : (sign list) NameTable.t =
+(*let find_sign (var_name:name) (env: (sign list) NameTable.t) : (sign list) = 
+  try NameTable.find var_name env with
+  Not_found -> failwith ("La variable " ^ var_name ^ " n'existe pas dans l'environnement")
+let rec eval_sign_expr (exp : expr) (env : (sign list) NameTable.t) : sign list =
   match exp with 
-  | Num (n) -> env
+  | Num (n) -> if n = 0 then [Zero] else if n > 0 then [Pos] else [Neg]
   | Var (v) -> find_sign v env
   | Op (op, expr1, expr2) -> (match op with 
     | Add -> (eval_expr expr1 envir) + (eval_expr expr2 envir)
@@ -436,7 +425,7 @@ let sign_div (l1 : sign list) (l2 : sign list) : sign list =
     match p with
     | [] -> env
     | (pos, Set (v, exp))::reste -> 
-        eval_sign_aux reste (NameTable.update v (fun _ -> Some (List.append (NameTable.find v env) eval_sign_expr)) env)
+        eval_sign_aux reste (NameTable.update v (fun _ -> Some (eval_sign_expr exp) env)
     | (pos, Read (name))::reste -> print_string (name ^ "?"); eval_sign_aux reste (NameTable.update name (fun _ -> Some (read_int ())) env) ;print_newline()
     | (pos, Print (exp))::reste -> print_int (eval_expr exp env); print_newline (); eval_sign_aux reste env 
     | (pos, If (cond, bloc1, bloc2))::reste -> let c = eval_cond cond env in if c then eval_sign_aux reste (eval_sign_aux bloc1 env) else eval_sign_aux reste (eval_sign_aux bloc2 env)
