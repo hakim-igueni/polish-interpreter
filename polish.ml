@@ -379,6 +379,17 @@ let rec union (l1:sign list) (l2:sign list) : sign list =
   | hd::tl ->
     if List.mem hd l1 then union l1 tl else union (hd::l1) tl;;
 
+let distribute_sign l1 l2 f =
+  let rec distribute_sign_aux s1 l =
+    match l with 
+    | [] -> []
+    | s2::q -> union (f s1 s2) (distribute_sign_aux s1 q)
+  in let rec distribute_sign_aux2 l1 l2 =
+    match l1 with 
+    | [] -> []
+    | s1::q1 -> union (distribute_sign_aux s1 l2) (distribute_sign_aux2 q1 l2)
+  in distribute_sign_aux2 l1 l2;;
+
 let sign_add (l1 : sign list) (l2 : sign list) : sign list =
   let sign_add_aux (s1 : sign) (s2 : sign) : sign list = match s1, s2 with 
     | Error, _ | _, Error -> [Error]
@@ -386,15 +397,22 @@ let sign_add (l1 : sign list) (l2 : sign list) : sign list =
     | Pos, Pos -> [Pos]
     | Neg, Neg -> [Neg]
     | Pos, Neg | Neg, Pos -> [Zero; Pos; Neg]
-  in let rec sign_add_aux2 s1 l =
-    match l with 
-    | [] -> []
-    | s2::q -> union (sign_add_aux s1 s2) (sign_add_aux2 s1 q)
-  in let rec sign_add_aux3 l1 l2 =
-    match l1 with 
-    | [] -> []
-    | s1::q1 -> union (sign_add_aux2 s1 l2) (sign_add_aux3 q1 l2)
-  in sign_add_aux3 l1 l2
+  in distribute_sign l1 l2 sign_add_aux
+
+let sign_mul (l1 : sign list) (l2 : sign list) : sign list =
+  let sign_mul_aux (s1 : sign) (s2 : sign) : sign list = match s1, s2 with
+  | Error, _ | _, Error -> [Error]
+  | Zero, s | s, Zero -> [Zero]
+  | Pos, Pos | Neg, Neg -> [Pos]
+  | _, _ -> [Neg] 
+  in distribute_sign l1 l2 sign_mul_aux
+
+let sign_div (l1 : sign list) (l2 : sign list) : sign list = 
+  let sign_inverse s = match s with 
+  | Pos | Neg -> s
+  | Zero | Error -> Error
+  in sign_mul l1 (List.map sign_inverse l2);;
+
 
 (*let rec eval_sign_expr (exp : expr) (env : (sign list) NameTable.t) : (sign list) NameTable.t =
   match exp with 
