@@ -200,17 +200,17 @@ let print_ind (ind:int) : unit =
 
 let print_op (opr : op) : unit = 
   match opr with
-  |Add -> print_string " + "
-  |Sub -> print_string " - "
-  |Mul -> print_string " * "
-  |Div -> print_string " / "
-  |Mod -> print_string " % ";;
+  |Add -> print_string "+ "
+  |Sub -> print_string "- "
+  |Mul -> print_string "* "
+  |Div -> print_string "/ "
+  |Mod -> print_string "% ";;
 
 let rec print_expr (expr : expr) : unit =
   match expr with 
   | Num(v) -> print_int(v)
   | Var(v) -> print_string(v)
-  | Op(op,expr1,expr2) -> print_expr(expr1);print_op (op);print_expr(expr2)
+  | Op(op,expr1,expr2) -> print_op (op); print_expr(expr1); print_string (" "); print_expr(expr2)
 
 let print_cond (cond : cond) : unit =
   match cond with 
@@ -308,26 +308,30 @@ let eval_polish (p:program) : unit =
 (* let p = read_polish "prog.p";;
 eval_polish p;; *)
 
-let rec simpl_expr (exp : expr) : expr =
-  match exp with 
-  | Num(v) -> exp
-  | Var(v) -> exp
-  | Op(Div, expr1, Num 0) -> Op (Div, simpl_expr expr1, Num 0)
-  | Op(Mod, expr1, Num 0) -> Op (Mod, simpl_expr expr1, Num 0)
-  | Op(Mul, expr1, Num 0) -> Num 0
-  | Op(Mul, Num 0, expr2) -> Num 0
-  | Op(Div, Num 0, expr2) -> Num 0
-  | Op(Mul, Num 1, expr) 
-  | Op(Mul, expr, Num 1) 
-  | Op(Add, Num 0, expr) 
-  | Op(Add, expr, Num 0) -> (simpl_expr expr)
-  | Op(op, Num x, Num y) -> (match op with 
-      |Add -> Num (x+y)
-      |Sub -> Num (x-y)
-      |Mul -> Num (x*y)
-      |Div -> Num (x/y)
-      |Mod -> Num (x mod y))
-  | Op(op,expr1,expr2) -> Op(op, simpl_expr expr1, simpl_expr expr2)
+let simpl_expr (exp : expr) : expr =
+  let rec simpl_expr_aux exp = 
+    match exp with 
+    | Num(v) -> exp
+    | Var(v) -> exp
+    | Op(Div, Num 0, expr2) -> Num 0
+    | Op(Mul, expr1, Num 0) -> Num 0
+    | Op(Mul, Num 0, expr2) -> Num 0
+    | Op(Mul, Num 1, expr) 
+    | Op(Mul, expr, Num 1) 
+    | Op(Add, Num 0, expr) 
+    | Op(Add, expr, Num 0) -> (simpl_expr_aux expr)
+    | Op(Div, expr1, Num 0) -> Op (Div, simpl_expr_aux expr1, Num 0)
+    | Op(Mod, expr1, Num 0) -> Op (Mod, simpl_expr_aux expr1, Num 0)
+    | Op(op, Num x, Num y) -> (match op with 
+        |Add -> Num (x+y)
+        |Sub -> Num (x-y)
+        |Mul -> Num (x*y)
+        |Div -> Num (x/y)
+        |Mod -> Num (x mod y))
+    | Op(op,expr1,expr2) -> Op(op, simpl_expr_aux expr1, simpl_expr_aux expr2)
+  in let exp_simp = simpl_expr_aux exp 
+  in let exp_simp_simp = (simpl_expr_aux exp_simp) 
+  in if exp_simp_simp = exp_simp then exp_simp else simpl_expr_aux exp_simp_simp
 
 let simpl_cond (c : cond) : cond =
   match c with (exp1, comp, exp2) -> 
@@ -363,10 +367,26 @@ and simpl_program (p:program) : program =
     else ((pos, ins_simp)::(simpl_program ps)) 
 let simpl_polish (p:program) : unit = print_polish (simpl_program p)
 
-let vars_polish (p:program) : unit = failwith "TODO"
+let vars_polish (p:program) : unit = failwith "TODO";;
 
+(* let find_sign (var_name:name) (env: (sign list) NameTable.t) : (sign list) = 
+  try NameTable.find var_name env with
+  Not_found -> failwith ("La variable " ^ var_name ^ " n'existe pas dans l'environnement")
+let rec eval_sign_expr (exp : expr) (env : (sign list) NameTable.t) : (sign list) NameTable.t =
+  match exp with 
+  | Num (n) -> env
+  | Var (v) -> find_sign v env
+  | Op (op, expr1, expr2) -> (match op with 
+    | Add -> (eval_expr expr1 envir) + (eval_expr expr2 envir)
+    | Sub -> (eval_expr expr1 envir) - (eval_expr expr2 envir)
+    | Mul -> (eval_expr expr1 envir) * (eval_expr expr2 envir)
+    | Div ->
+      let expr2_eval = eval_expr expr2 envir in if expr2_eval <> 0 then (eval_expr expr1 envir) / expr2_eval
+      else failwith "Erreur d'évaluation: Division par zéro"
+    | Mod ->
+      let expr2_eval = eval_expr expr2 envir in if expr2_eval <> 0 then (eval_expr expr1 envir) mod expr2_eval
+      else failwith "Erreur d'évaluation: Modulo par zéro");;(* TODO: ("Ligne " ^ string_of_int pos ^ ": Erreur d'évaluation: Modulo par zéro")*)
 
-(*let rec eval_sign_expr (exp : expr) (env : (sign list) NameTable.t) : (sign list) NameTable.t =
 
 let sign_polish (p:program) : unit =
   let e : (sign list) NameTable.t = NameTable.empty
@@ -381,7 +401,7 @@ let sign_polish (p:program) : unit =
     | (pos, While (cond, bloc))::reste -> eval_sign_aux reste (eval_while cond bloc env)
   and eval_while (cond:cond) (bloc:program) (env : (sign list) NameTable.t) : int NameTable.t =
     if eval_cond cond env then (eval_while cond bloc (eval_sign_aux bloc env)) else env
-  in let nothing (ee : int NameTable.t) : unit = () in nothing (eval_sign_aux p e);;*)
+  in let nothing (ee : int NameTable.t) : unit = () in nothing (eval_sign_aux p e);;*) 
 let usage () =
   print_string "Polish : analyse statique d'un mini-langage\n";
   print_string "usage: run [options] <file>\n telle que les options sont:\n

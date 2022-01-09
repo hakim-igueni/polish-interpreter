@@ -1,5 +1,11 @@
 COMMENT Calcul de la factorielle
-n := + 5 / 0 0
+v := 5
+PRINT + 7 6
+IF 1 < 2 
+  x := + v / + 1 1 0
+ELSE
+  READ k
+n := + v / 0 0
 WHILE 1 > 2
   PRINT n
   n := + n 1
