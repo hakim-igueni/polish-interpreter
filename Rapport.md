@@ -42,7 +42,3 @@ Module polish qui regroupe toutes les fonctionnalités possibles sur un programm
 # Organisation du travail
 
 On a utilisé la technique "Pair Programming" qui est une technique de développement logiciel Agile issue de la programmation Extrême (XP).
-
-# Misc (remarques, suggestions, questions...)
-
-TODO

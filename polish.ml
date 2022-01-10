@@ -38,7 +38,7 @@ let simpl_polish (p:program) : unit =
   in print_polish (simpl_program p env)
 
 let vars_polish (p:program) : unit =
-  let env : int NameTable.t = NameTable.empty
+  let env : int NameTable.t = NameTable.empty (* (name * bool) pairs *)
   in vars_program (simpl_program p env);;
 
 let sign_polish (p:program) : unit = sign_program p;;
