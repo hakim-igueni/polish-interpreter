@@ -29,7 +29,16 @@ Les options sont:
 - `-sign` : analyse statique du signe possible des variables lors du déroulement du programme, et application à la détermination du risque de division par zéro.
 
 # Découpage modulaire
-
+Le projet se décompose en plusieurs modules où chaque module regroupe les fonctions necessaires aux developpement de chacune des fonctionnalités possibles.   
+Module read qui regroupe les fonctions necessaires pour la lecture d'un programme polish 
+Module reprint regroupant les fonctions qui permettent de réafficher un programme polish 
+Module eval qui regroupe les fonctions utilisés par la fonction eval_polish afin d'evaluer un programme polish
+Module simpl qui regroupe les fonctions de simplification d'un programme polish 
+Module vars qui regroupe les fonctions nécessaires au développement de la fonctionnalité vars
+Module sign qui regroupe les fonctions permettant les bon déroulement de la fonctionnalité sign
+Module types qui regroupe tout les types et toutes les structures de données utilisées dans le projet 
+Module utils qui regroupe toutes les autres fonctions auxiliaires utilisées
+Module polish qui regroupe toutes les fonctionnalités possibles sur un programme polish
 # Organisation du travail
 
 On a utilisé la technique "Pair Programming" qui est une technique de développement logiciel Agile issue de la programmation Extrême (XP).
