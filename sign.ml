@@ -117,5 +117,5 @@ let sign_program (p:program) : unit =
         in sign_block reste (sign_while pos cond bloc env)
     and sign_while (pos : position) (cond:cond) (bloc:program) (env : (sign list) NameTable.t) : (sign list) NameTable.t =
       if condition_satisfied pos cond env then (sign_while pos cond bloc (sign_block bloc env)) else env
-  in NameTable.iter (fun k v -> print_string k; print_sign_list v; print_newline ()) (sign_block p e);
-  if divbyzero then Printf.printf "divbyzero %d" first_time_divbyzero else print_string "safe";;
+  in NameTable.iter (fun k v -> print_string (k ^ " "); print_sign_list v; print_newline ()) (sign_block p e);
+  if divbyzero then Printf.printf "divbyzero %d\n" first_time_divbyzero else print_string "safe\n";;

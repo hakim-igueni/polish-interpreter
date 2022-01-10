@@ -1,5 +1,5 @@
-WHILE 1 < 2
-IF 1 > 2
-ELSE
-PRINT x
-PRINT v
+x := 5
+READ n
+PRINT n
+PRINT y
+PRINT 5

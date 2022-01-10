@@ -14,6 +14,7 @@ open Eval
 open Simpl
 open Sign
 open Utils
+open Vars
 
 module NameTable = Map.Make(String)
 
@@ -36,7 +37,9 @@ let simpl_polish (p:program) : unit =
   let env : int NameTable.t = NameTable.empty
   in print_polish (simpl_program p env)
 
-let vars_polish (p:program) : unit = failwith "TODO";;
+let vars_polish (p:program) : unit =
+  let env : int NameTable.t = NameTable.empty
+  in vars_program (simpl_program p env);;
 
 let sign_polish (p:program) : unit = sign_program p;;
 
@@ -55,8 +58,8 @@ let main () =
   | [|_;"-reprint";file|] -> print_polish (read_polish file)
   | [|_;"-eval";file|] -> eval_polish (read_polish file)
   | [|_;"-simpl";file|] -> simpl_polish (read_polish file)
-  | [|_;"-vars";file|] -> simpl_polish (read_polish file)
-  | [|_;"-sign";file|] -> simpl_polish (read_polish file)
+  | [|_;"-vars";file|] -> vars_polish (read_polish file)
+  | [|_;"-sign";file|] -> sign_polish (read_polish file)
   | _ -> usage ()
 
 (* lancement de ce main *)

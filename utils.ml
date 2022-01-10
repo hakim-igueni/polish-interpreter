@@ -2,8 +2,8 @@ open Types
 module NameTable = Map.Make(String);;
 
 let find (pos : position) (var_name:name) (env: 'a NameTable.t) : 'a = 
-  try NameTable.find var_name env with
-  Not_found -> failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe: La variable " ^ var_name ^ " n'existe pas dans l'environnement")
+  try NameTable.find var_name env
+  with Not_found -> failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe: La variable " ^ var_name ^ " n'existe pas dans l'environnement")
 
 let rec union l1 l2 =
   match l2 with
