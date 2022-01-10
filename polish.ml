@@ -146,8 +146,9 @@ let rec read_instr (pos: position) (niv : int) (lines : (position * string) list
           | "IF" ->
             let condition = read_cond pos ys
             in let (new_pos1, bloc_if, reste1) = read_block (pos+1) (niv+1) xs
-            in let (new_pos2, bloc_else, reste3) = read_else (new_pos1+1) niv reste1 in (new_pos2, If (condition, bloc_if, bloc_else), reste3)  
-          | "WHILE" -> (* TODO: traiter le cas ou le bloc de while ou if ou else est vide *)
+            in let (new_pos2, bloc_else, reste3) = read_else (if bloc_if = [] then new_pos1 else (new_pos1+1)) niv reste1
+            in (new_pos2, If (condition, bloc_if, bloc_else), reste3)  
+          | "WHILE" -> 
             let condition = read_cond pos ys (* on lit la condition du while *)
             in let (new_pos, bloc, reste) = read_block (pos+1) (niv+1) xs (* on lit le bloc du while *)
             in (new_pos, While (condition, bloc), reste)
@@ -172,7 +173,7 @@ and read_else (pos : position) (niv : int) (lines : (position * string) list) : 
             else let (new_pos2, bloc_else, reste3) = read_block (pos+1) (niv+1) reste2 (* lire le bloc de ELSE *)
             in (new_pos2, bloc_else, reste3)
           else failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe: le mot clé ELSE doit être tout seul dans la ligne"))
-        | _ -> (pos, [], reste2))
+        | _ -> (pos, [], lines))
 and read_block (pos: position) (niv : int) (lines : (position * string) list) : (position * block * (position * string) list) =
   match lines with 
   | [] -> (pos, [], [])
@@ -182,7 +183,7 @@ and read_block (pos: position) (niv : int) (lines : (position * string) list) : 
     else if (nb_ind/2) > niv then failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe: nombre d'indentations non respecté !")
     else if (nb_ind/2) < niv then (pos, [], lines)
     else match String.split_on_char ' ' (String.trim line) with
-      | "COMMENT"::_ | [""] -> read_block (pos+1) niv resteLignes
+      | "COMMENT"::_ | [""] -> read_block (pos+1) niv resteLignes (* on ignore les commentaires et les listes vides *)
       | _ ->
         let (new_pos1, instruction, reste1) = read_instr pos niv lines (* on lit la première instruction du bloc *)
         in let (new_pos2, bloc, reste2) = read_block new_pos1 niv reste1 (* on lit le reste du bloc *)
@@ -238,12 +239,12 @@ let rec print_instr (inst : instr) (ind:int) : unit =
   | If (cond,block1,block2) ->
     print_string("IF "); print_cond(cond); print_newline();
     print_program block1 (ind+2);
-    if (block2 <> []) then print_ind ind; print_string("ELSE\n"); print_program block2 (ind+2)
+    if (block2 <> []) then (print_ind ind; print_string("ELSE\n"); print_program block2 (ind+2))
   | While(cond,block) -> print_string("WHILE ");print_cond(cond);print_newline();print_program block (ind+2)
 and print_program (p:program) (ind : int) : unit =
   match p with 
   |[] -> ()
-  |(pos,instr)::ps -> print_ind ind; print_instr instr ind;print_program ps ind
+  |(pos,instr)::ps -> print_ind ind; print_instr instr ind;print_program ps ind;;
 
 let print_polish (p:program) : unit = 
     print_program p 0;;
@@ -261,7 +262,7 @@ let rec eval_expr (pos : position) (exp: expr) (envir : int NameTable.t) : int =
       else failwith ("Ligne " ^ string_of_int pos ^ ": Erreur d'évaluation: Division par zéro")
     | Mod ->
       let expr2_eval = eval_expr pos expr2 envir in if expr2_eval <> 0 then (eval_expr pos expr1 envir) mod expr2_eval
-      else failwith ("Ligne " ^ string_of_int pos ^ ": Erreur d'évaluation: Modulo par zéro"));;(* TODO: ("Ligne " ^ string_of_int pos ^ ": Erreur d'évaluation: Modulo par zéro")*)
+      else failwith ("Ligne " ^ string_of_int pos ^ ": Erreur d'évaluation: Modulo par zéro"));;
 
 let eval_cond (pos : position) (condition:cond) (envir : int NameTable.t) : bool =
   match condition with
@@ -500,8 +501,8 @@ let usage () =
   -reprint : lire et réafficher le programme polish\n
   -eval : évaluer le programme polish\n
   -simpl : simplifier un programme polish en effectuant la propagation des constantes et l'élimination des blocs morts\n
-  -vars : TODO: \n
-  -sign : TODO: \n";;
+  -vars : calcul statique des variables risquant d'être accédées avant d'être écrites \n
+  -sign : analyse statique du signe possible des variables lors du déroulement du programme, et application à la détermination du risque de division par zéro. \n";;
 
 
 let main () =

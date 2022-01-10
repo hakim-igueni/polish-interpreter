@@ -1,3 +1,5 @@
-n := 1
-v := -n
+WHILE 1 < 2
+IF 1 > 2
+ELSE
+PRINT x
 PRINT v
