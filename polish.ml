@@ -50,6 +50,11 @@ type sign = Neg | Zero | Pos | Error
 
 module NameTable = Map.Make(String)
 
+let find (pos : position) (var_name:name) (env: 'a NameTable.t) : 'a = 
+  try NameTable.find var_name env with
+  Not_found -> failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe: La variable " ^ var_name ^ " n'existe pas dans l'environnement")
+
+
 (***********************************************************************)
 
 (** Lire le fichier en entrée et extraire toutes ses lignes en couplant chaque ligne à son numéro de ligne *)
@@ -243,36 +248,30 @@ and print_program (p:program) (ind : int) : unit =
 let print_polish (p:program) : unit = 
     print_program p 0;;
 
-let find (var_name:name) (env:int NameTable.t) : int = 
-  try NameTable.find var_name env with
-  Not_found -> failwith ("La variable " ^ var_name ^ " n'existe pas dans l'environnement")
-
-let rec eval_expr (exp: expr) (envir : int NameTable.t) : int = 
+let rec eval_expr (pos : position) (exp: expr) (envir : int NameTable.t) : int = 
   match exp with 
   | Num (n) -> n
-  | Var (v) -> find v envir
+  | Var (v) -> find pos v envir
   | Op (op, expr1, expr2) -> (match op with 
-    | Add -> (eval_expr expr1 envir) + (eval_expr expr2 envir)
-    | Sub -> (eval_expr expr1 envir) - (eval_expr expr2 envir)
-    | Mul -> (eval_expr expr1 envir) * (eval_expr expr2 envir)
+    | Add -> (eval_expr pos expr1 envir) + (eval_expr pos expr2 envir)
+    | Sub -> (eval_expr pos expr1 envir) - (eval_expr pos expr2 envir)
+    | Mul -> (eval_expr pos expr1 envir) * (eval_expr pos expr2 envir)
     | Div ->
-      let expr2_eval = eval_expr expr2 envir in if expr2_eval <> 0 then (eval_expr expr1 envir) / expr2_eval
-      else failwith "Erreur d'évaluation: Division par zéro"
+      let expr2_eval = eval_expr pos expr2 envir in if expr2_eval <> 0 then (eval_expr pos expr1 envir) / expr2_eval
+      else failwith ("Ligne " ^ string_of_int pos ^ ": Erreur d'évaluation: Division par zéro")
     | Mod ->
-      let expr2_eval = eval_expr expr2 envir in if expr2_eval <> 0 then (eval_expr expr1 envir) mod expr2_eval
-      else failwith "Erreur d'évaluation: Modulo par zéro");;(* TODO: ("Ligne " ^ string_of_int pos ^ ": Erreur d'évaluation: Modulo par zéro")*)
+      let expr2_eval = eval_expr pos expr2 envir in if expr2_eval <> 0 then (eval_expr pos expr1 envir) mod expr2_eval
+      else failwith ("Ligne " ^ string_of_int pos ^ ": Erreur d'évaluation: Modulo par zéro"));;(* TODO: ("Ligne " ^ string_of_int pos ^ ": Erreur d'évaluation: Modulo par zéro")*)
 
-let eval_cond (condition:cond) (envir : int NameTable.t) : bool =
+let eval_cond (pos : position) (condition:cond) (envir : int NameTable.t) : bool =
   match condition with
   |(expr1, comp, expr2) -> match comp with
-    | Eq -> (eval_expr expr1 envir) = (eval_expr expr2 envir)
-    | Ne -> (eval_expr expr1 envir) <> (eval_expr expr2 envir)
-    | Lt -> (eval_expr expr1 envir) < (eval_expr expr2 envir)
-    | Le -> (eval_expr expr1 envir) <= (eval_expr expr2 envir)
-    | Gt -> (eval_expr expr1 envir) > (eval_expr expr2 envir)
-    | Ge -> (eval_expr expr1 envir) >= (eval_expr expr2 envir);;
-
-eval_cond (Num (1),Eq,Num(2)) (NameTable.empty);;
+    | Eq -> (eval_expr pos expr1 envir) = (eval_expr pos expr2 envir)
+    | Ne -> (eval_expr pos expr1 envir) <> (eval_expr pos expr2 envir)
+    | Lt -> (eval_expr pos expr1 envir) < (eval_expr pos expr2 envir)
+    | Le -> (eval_expr pos expr1 envir) <= (eval_expr pos expr2 envir)
+    | Gt -> (eval_expr pos expr1 envir) > (eval_expr pos expr2 envir)
+    | Ge -> (eval_expr pos expr1 envir) >= (eval_expr pos expr2 envir);;
 
 let environment : int NameTable.t = NameTable.empty;; (* L'environnement de notre programme Polish *)
 let eval_polish (p:program) : unit = 
@@ -280,13 +279,13 @@ let eval_polish (p:program) : unit =
   in let rec eval_polish_aux (p:program) (env : int NameTable.t) : int NameTable.t = (*int NameTable.t =*)
     match p with
     | [] -> env
-    | (pos, Set (v, exp))::reste -> eval_polish_aux reste (NameTable.update v (fun _ -> Some (eval_expr exp env)) env)
+    | (pos, Set (v, exp))::reste -> eval_polish_aux reste (NameTable.update v (fun _ -> Some (eval_expr pos exp env)) env)
     | (pos, Read (name))::reste -> print_string (name ^ "?"); eval_polish_aux reste (NameTable.update name (fun _ -> Some (read_int ())) env) (*;print_newline()*)
-    | (pos, Print (exp))::reste -> print_int (eval_expr exp env); print_newline (); eval_polish_aux reste env 
-    | (pos, If (cond, bloc1, bloc2))::reste -> let c = eval_cond cond env in if c then eval_polish_aux reste (eval_polish_aux bloc1 env) else eval_polish_aux reste (eval_polish_aux bloc2 env)
-    | (pos, While (cond, bloc))::reste -> eval_polish_aux reste (eval_while cond bloc env)
-  and eval_while (cond:cond) (bloc:program) (env : int NameTable.t) : int NameTable.t =
-    if eval_cond cond env then (eval_while cond bloc (eval_polish_aux bloc env)) else env
+    | (pos, Print (exp))::reste -> print_int (eval_expr pos exp env); print_newline (); eval_polish_aux reste env 
+    | (pos, If (cond, bloc1, bloc2))::reste -> let c = eval_cond pos cond env in if c then eval_polish_aux reste (eval_polish_aux bloc1 env) else eval_polish_aux reste (eval_polish_aux bloc2 env)
+    | (pos, While (cond, bloc))::reste -> eval_polish_aux reste (eval_while pos cond bloc env)
+  and eval_while (pos : position) (cond:cond) (bloc:program) (env : int NameTable.t) : int NameTable.t =
+    if eval_cond pos cond env then (eval_while pos cond bloc (eval_polish_aux bloc env)) else env
   in let nothing (ee : int NameTable.t) : unit = () in nothing (eval_polish_aux p e);;
 
 (* let p = read_polish "prog.p";;
@@ -322,7 +321,7 @@ let simpl_cond (c : cond) : cond =
     let exp1_simp = simpl_expr exp1 
     in let exp2_simp = simpl_expr exp2 
     in (exp1_simp, comp, exp2_simp) 
-let rec simpl_instr (inst : instr) : (instr * bool) =
+let rec simpl_instr (pos : position) (inst : instr) : (instr * bool) =
   match inst with 
   | Set (v,expr) -> Set (v,simpl_expr expr), false
   | Read (v) -> inst, false
@@ -331,19 +330,19 @@ let rec simpl_instr (inst : instr) : (instr * bool) =
       let cond_simp = simpl_cond cond 
       in (match cond_simp with  
         | (Num (v1), comp, Num (v2)) -> 
-          if eval_cond cond_simp environment then If (cond_simp, (simpl_program blockIf), []), true
+          if eval_cond pos cond_simp environment then If (cond_simp, (simpl_program blockIf), []), true
           else If (cond_simp, [], (simpl_program blockElse)), true
         | _ -> If (cond_simp, simpl_program blockIf, simpl_program blockElse), false)
   | While(cond,bloc) -> 
     let cond_simp = simpl_cond cond 
     in (match cond_simp with  
-    | (Num (v1), comp, Num (v2)) -> While (cond_simp, simpl_program bloc), not (eval_cond cond_simp environment) 
+    | (Num (v1), comp, Num (v2)) -> While (cond_simp, simpl_program bloc), not (eval_cond pos cond_simp environment) 
     | _ -> While (cond_simp, simpl_program bloc), false)
 and simpl_program (p:program) : program =
   match p with 
   |[] -> []
   |(pos,ins)::ps -> 
-    let ins_simp, can_be_deleted = simpl_instr ins
+    let ins_simp, can_be_deleted = simpl_instr pos ins
     in if can_be_deleted then 
       (match ins_simp with 
        | If (_, b1, b2) -> (simpl_program b1) @ (simpl_program b2) @ (simpl_program ps)
@@ -406,20 +405,17 @@ let sign_mod (l1 : sign list) (l2 : sign list) : sign list =
     | Zero, s -> [Zero]
     | s, _ -> [Zero; s]
   in distribute l1 l2 sign_mod_aux union []
-
-let find_sign (var_name:name) (env: (sign list) NameTable.t) : (sign list) = 
-  try NameTable.find var_name env with
-  Not_found -> failwith ("La variable " ^ var_name ^ " n'existe pas dans l'environnement")
-let rec sign_expr (exp : expr) (env : (sign list) NameTable.t) : sign list =
+  
+let rec sign_expr (pos : position) (exp : expr) (env : (sign list) NameTable.t) : sign list =
   match exp with 
   | Num (n) -> if n = 0 then [Zero] else if n > 0 then [Pos] else [Neg]
-  | Var (v) -> find_sign v env
+  | Var (v) -> find pos v env
   | Op (op, expr1, expr2) -> (match op with 
-    | Add -> sign_add (sign_expr expr1 env) (sign_expr expr2 env)
-    | Sub -> sign_sub (sign_expr expr1 env) (sign_expr expr2 env)
-    | Mul -> sign_mul (sign_expr expr1 env) (sign_expr expr2 env)
-    | Div -> sign_div (sign_expr expr1 env) (sign_expr expr2 env)
-    | Mod -> sign_mod (sign_expr expr1 env) (sign_expr expr2 env))
+    | Add -> sign_add (sign_expr pos expr1 env) (sign_expr pos expr2 env)
+    | Sub -> sign_sub (sign_expr pos expr1 env) (sign_expr pos expr2 env)
+    | Mul -> sign_mul (sign_expr pos expr1 env) (sign_expr pos expr2 env)
+    | Div -> sign_div (sign_expr pos expr1 env) (sign_expr pos expr2 env)
+    | Mod -> sign_mod (sign_expr pos expr1 env) (sign_expr pos expr2 env))
 let intersection l1 l2 =
   let rec intersection_aux l1 l2 acc =
     match l1 with 
@@ -428,8 +424,12 @@ let intersection l1 l2 =
         if List.mem hd l2 then intersection_aux tl l2 (hd::acc) else intersection_aux tl l2 acc
   in intersection_aux l1 l2 []
 
-let condition_satisfied (c : cond) (env : (sign list) NameTable.t) : bool =
-  let eq_satisfied l1 l2 = not ((intersection l1 l2) = [])
+let condition_satisfied (pos : position) (c : cond) (env : (sign list) NameTable.t) : bool =
+  let eq_satisfied l1 l2 =
+    let eq_satisfied_aux s1 s2 = match s1, s2 with
+      | Pos, Pos | Zero, Zero | Neg, Neg -> true
+      | _, _ -> false
+    in distribute l1 l2 eq_satisfied_aux (||) false
   in let gt_satisfied l1 l2 =
     let gt_satisfied_aux s1 s2 = match s1, s2 with
       | Error, _ | _, Error -> false
@@ -448,30 +448,52 @@ let condition_satisfied (c : cond) (env : (sign list) NameTable.t) : bool =
   in let ge_satisfied l1 l2 = (gt_satisfied l1 l2) || (eq_satisfied l1 l2)
   in let le_satisfied l1 l2 = (lt_satisfied l1 l2) || (eq_satisfied l1 l2)
   in match c with 
-    | exp1, Eq, exp2 -> eq_satisfied (sign_expr exp1 env) (sign_expr exp2 env)
-    | exp1, Ne, exp2 -> ne_satisfied (sign_expr exp1 env) (sign_expr exp2 env)
-    | exp1, Lt, exp2 -> lt_satisfied (sign_expr exp1 env) (sign_expr exp2 env)
-    | exp1, Le, exp2 -> le_satisfied (sign_expr exp1 env) (sign_expr exp2 env)
-    | exp1, Gt, exp2 -> gt_satisfied (sign_expr exp1 env) (sign_expr exp2 env)
-    | exp1, Ge, exp2 -> ge_satisfied (sign_expr exp1 env) (sign_expr exp2 env)
+    | exp1, Eq, exp2 -> eq_satisfied (sign_expr pos exp1 env) (sign_expr pos exp2 env)
+    | exp1, Ne, exp2 -> ne_satisfied (sign_expr pos exp1 env) (sign_expr pos exp2 env)
+    | exp1, Lt, exp2 -> lt_satisfied (sign_expr pos exp1 env) (sign_expr pos exp2 env)
+    | exp1, Le, exp2 -> le_satisfied (sign_expr pos exp1 env) (sign_expr pos exp2 env)
+    | exp1, Gt, exp2 -> gt_satisfied (sign_expr pos exp1 env) (sign_expr pos exp2 env)
+    | exp1, Ge, exp2 -> ge_satisfied (sign_expr pos exp1 env) (sign_expr pos exp2 env)
 
 let sign_polish (p:program) : unit =
   let e : (sign list) NameTable.t = NameTable.empty
+  in let divbyzero = false in let first_time_divbyzero = 0
   in let rec sign_polish_aux (p:program) (env : (sign list) NameTable.t) : (sign list) NameTable.t = 
     match p with
     | [] -> env
     | (pos, Set (v, exp))::reste -> 
-        sign_polish_aux reste (NameTable.update v (fun _ -> Some (sign_expr exp env)) env)
+        let exp_sign = sign_expr pos exp env
+        in let divbyzero, first_time_divbyzero = if List.mem Error exp_sign && not divbyzero then true, pos else divbyzero, first_time_divbyzero
+        in sign_polish_aux reste (NameTable.update v (fun _ -> Some exp_sign) env)
     | (pos, Read (name))::reste -> sign_polish_aux reste (NameTable.update name (fun _ -> Some [Neg; Zero; Pos]) env)
-    | (pos, Print (exp))::reste -> env
-    | (pos, If (cond, bloc1, bloc2))::reste -> 
-        let c = condition_satisfied cond env 
-        in if c then sign_polish_aux reste (sign_polish_aux bloc1 env) 
-        else sign_polish_aux reste (sign_polish_aux bloc2 env)
-    | (pos, While (cond, bloc))::reste -> sign_polish_aux reste (eval_while cond bloc env)
-  and eval_while (cond:cond) (bloc:program) (env : (sign list) NameTable.t) : int NameTable.t =
-    if eval_cond cond env then (eval_while cond bloc (sign_polish_aux bloc env)) else env
-  in let nothing (ee : int NameTable.t) : unit = () in nothing (sign_polish_aux p e);;
+    | (pos, Print (exp))::reste ->
+      let exp_sign = sign_expr pos exp env
+      in let divbyzero, first_time_divbyzero = if List.mem Error exp_sign && not divbyzero then true, pos else divbyzero, first_time_divbyzero
+      in env
+    | (pos, If (cond, bloc1, bloc2))::reste ->
+      let (exp1, _, exp2) = cond in
+      let exp1_sign, exp2_sign = sign_expr pos exp1 env, sign_expr pos exp2 env
+      in let divbyzero, first_time_divbyzero =
+        if (List.mem Error exp1_sign || List.mem Error exp2_sign) && not divbyzero then true, pos
+        else divbyzero, first_time_divbyzero
+      in if condition_satisfied pos cond env then sign_polish_aux reste (sign_polish_aux bloc1 env) 
+      else sign_polish_aux reste (sign_polish_aux bloc2 env)
+    | (pos, While (cond, bloc))::reste ->
+      let (exp1, _, exp2) = cond
+      in let exp1_sign, exp2_sign = sign_expr pos exp1 env, sign_expr pos exp2 env
+      in let divbyzero, first_time_divbyzero =
+        if (List.mem Error exp1_sign || List.mem Error exp2_sign) && not divbyzero then true, pos
+        else divbyzero, first_time_divbyzero
+      in sign_polish_aux reste (sign_while pos cond bloc env)
+  and sign_while (pos : position) (cond:cond) (bloc:program) (env : (sign list) NameTable.t) : (sign list) NameTable.t =
+    if condition_satisfied pos cond env then (sign_while pos cond bloc (sign_polish_aux bloc env)) else env
+
+  in let sign_to_string s = match s with Pos -> "+" | Neg -> "-" | Zero -> "0" | Error -> "!"
+  in let sign_list_to_string_list l = List.map sign_to_string l
+  in let print_sign_list l = List.iter print_string (sign_list_to_string_list l)
+  in NameTable.iter (fun k v -> print_string k; print_sign_list v; print_newline ()) (sign_polish_aux p e);
+  if divbyzero then Printf.printf "divbyzero %d" first_time_divbyzero else print_string "safe";;
+
 let usage () =
   print_string "Polish : analyse statique d'un mini-langage\n";
   print_string "usage: run [options] <file>\n telle que les options sont:\n
