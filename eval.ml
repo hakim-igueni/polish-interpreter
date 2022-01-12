@@ -33,7 +33,7 @@ let rec eval_block (p:program) (env : int NameTable.t) : int NameTable.t = (*int
     match p with
     | [] -> env
     | (pos, Set (v, exp))::reste -> eval_block reste (NameTable.update v (fun _ -> Some (eval_expr pos exp env)) env)
-    | (pos, Read (name))::reste -> print_string (name ^ "?"); eval_block reste (NameTable.update name (fun _ -> Some (read_int ())) env) (*;print_newline()*)
+    | (pos, Read (name))::reste -> print_string (name ^ "? "); eval_block reste (NameTable.update name (fun _ -> Some (read_int ())) env) (*;print_newline()*)
     | (pos, Print (exp))::reste -> print_int (eval_expr pos exp env); print_newline (); eval_block reste env 
     | (pos, If (cond, bloc1, bloc2))::reste -> let c = eval_cond pos cond env in if c then eval_block reste (eval_block bloc1 env) else eval_block reste (eval_block bloc2 env)
     | (pos, While (cond, bloc))::reste -> eval_block reste (eval_while pos cond bloc env)

@@ -57,3 +57,9 @@ val sign_to_string : Types.sign -> string
 val sign_list_to_string_list : Types.sign list -> string list
 val print_sign_list : Types.sign list -> unit
 val sign_program : Types.block -> unit
+val union_env :
+  Types.sign list NameTable.t ->
+  Types.sign list NameTable.t -> Types.sign list NameTable.t
+val e1 : Types.sign list NameTable.t
+val e2 : Types.sign list NameTable.t
+val e3 : Types.sign list NameTable.t
