@@ -17,6 +17,7 @@ open Utils
 open Vars
 
 module NameTable = Map.Make(String)
+module Vars = Set.Make(String)
 
 
 (***********************************************************************)

@@ -76,7 +76,7 @@ let rec read_instr (pos: position) (niv : int) (lines : (position * string) list
   |x::xs -> 
     match x with p, s -> 
       let mots = create_mots s in match mots with 
-        | [] -> failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe:?????") (* ligne vide *)
+        | [] -> failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe: ligne vide ") (* ligne vide *)
         | y::ys -> match y with
           (* | "COMMENT" -> read_instr (pos+1) niv xs *)
           | "READ" -> (match ys with 
@@ -96,7 +96,7 @@ let rec read_instr (pos: position) (niv : int) (lines : (position * string) list
             in let (new_pos, bloc, reste) = read_block (pos+1) (niv+1) xs (* on lit le bloc du while *)
             in (new_pos, While (condition, bloc), reste)
           | _ -> (match ys with 
-            | [] -> failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe:?????")
+            | [] -> failwith ("Ligne " ^ string_of_int pos ^ ": Erreur de syntaxe: instruction inconnue !!")
             | ":="::zs ->
               let exp, reste = read_expr pos zs
               in (if reste = [] then (pos+1, Set(y, exp), xs)
