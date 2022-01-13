@@ -1,7 +1,7 @@
 module NameTable :
   sig
     type key = string
-    type 'a t = 'a Map.Make(String).t
+    type 'a t = 'a Utils.NameTable.t
     val empty : 'a t
     val is_empty : 'a t -> bool
     val mem : key -> 'a t -> bool
@@ -44,16 +44,9 @@ module NameTable :
     val add_seq : (key * 'a) Seq.t -> 'a t -> 'a t
     val of_seq : (key * 'a) Seq.t -> 'a t
   end
-val find : int -> string -> 'a NameTable.t -> 'a
-val union : 'a list -> 'a list -> 'a list
-val distribute :
-  'a list -> 'b list -> ('a -> 'b -> 'c) -> ('c -> 'c -> 'c) -> 'c -> 'c
-val intersection : 'a list -> 'a list -> 'a list
-val union_env :
-  Types.sign list NameTable.t ->
-  Types.sign list NameTable.t -> Types.sign list NameTable.t
-val inter :
-  ('a -> 'b -> 'c) -> ('d * 'a) list -> ('d * 'b) list -> ('d * 'c) list
-val intersection_env :
-  Types.sign list NameTable.t ->
-  Types.sign list NameTable.t -> Types.sign list NameTable.t
+val vars_expr : Types.expr -> bool NameTable.t -> bool NameTable.t
+val vars_cond : Types.cond -> bool NameTable.t -> bool NameTable.t
+val union_envs : bool NameTable.t -> bool NameTable.t -> bool NameTable.t
+val intersect_envs : bool NameTable.t -> bool NameTable.t -> 'a NameTable.t
+val vars_block : Types.block -> bool NameTable.t -> bool NameTable.t
+val vars_program : Types.block -> unit

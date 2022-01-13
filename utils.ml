@@ -32,15 +32,13 @@ let intersection l1 l2 =
   
   let union_env (env1 : (sign list) NameTable.t) (env2 : (sign list) NameTable.t) : (sign list) NameTable.t =
     NameTable.union (fun k l1 l2 -> Some (union l1 l2)) env1 env2;;
-    
 
-
-let inter e1 e2 =
+let inter f e1 e2 =
   let rec inter2 k v e =
     match e with
     | [] -> []
     | (k', v')::q ->
-      if k = k' then [(k, intersection v v')] else inter2 k v q
+      if k = k' then [(k, f v v')] else inter2 k v q
   in let rec inter3 e1 e2 acc =
       match e1 with
       | [] -> acc
@@ -54,4 +52,4 @@ let intersection_env (env1 : (sign list) NameTable.t) (env2 : (sign list) NameTa
     | (k, v)::q -> NameTable.add k v (create_env q)
   in let env1_bindings = NameTable.bindings env1
   in let env2_bindings = NameTable.bindings env2
-  in create_env (inter env1_bindings env2_bindings);;
+  in create_env (inter intersection env1_bindings env2_bindings);;

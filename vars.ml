@@ -12,12 +12,7 @@ let vars_cond (c:cond) (env : bool NameTable.t) : bool NameTable.t =
   let (e1, _, e2) = c in vars_expr e2 (vars_expr e1 env)
 
 let union_envs env1 env2 =
-  let result = NameTable.empty 
-  in (fun () -> result) (NameTable.iter
-    (fun k v -> NameTable.iter
-                  (fun k' v' ->
-                    if k = k' then (fun _ -> ()) (NameTable.add k (v && v') result)
-                    else (fun _ -> ()) (NameTable.add k' v' (NameTable.add k v result))) env2) env1)
+  NameTable.union (fun k b1 b2 -> Some (b1 && b2)) env1 env2;;
 
 let intersect_envs env1 env2 =
   let result = NameTable.empty 
@@ -35,8 +30,9 @@ let rec vars_block (p:program) (env : bool NameTable.t) : bool NameTable.t = (*i
   | (pos, Print (exp))::reste ->  vars_block reste (vars_expr exp env)
   | (pos, If (cond, bloc1, bloc2))::reste ->
     let env_if = vars_block bloc1 (vars_cond cond env) in let env_else = vars_block bloc2 env 
-    in vars_block reste (union_envs (intersect_envs env_if env_else) env) (*(union_envs (intersect_envs env (intersect_envs env_if env_else)) env)*)
-  | (pos, While (cond, bloc))::reste -> let env_while = (vars_block bloc (vars_cond cond env)) in vars_block reste (union_envs env env_while) (*(union_envs (intersect_envs env env_while) env)*)
+    in vars_block reste (union_envs (union_envs env_if env_else) env) 
+  | (pos, While (cond, bloc))::reste ->
+    let env_while = vars_block bloc (vars_cond cond env) in vars_block reste (union_envs env env_while) 
 
  let vars_program (p:program) : unit = 
   let e : bool NameTable.t = NameTable.empty 

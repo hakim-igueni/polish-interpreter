@@ -120,11 +120,14 @@ let sign_program (p:program) : unit =
   in NameTable.iter (fun k v -> print_string (k ^ " "); print_sign_list v; print_newline ()) (sign_block p e);
   if divbyzero then Printf.printf "divbyzero %d\n" first_time_divbyzero else print_string "safe\n";;
 
-let propagate_eq (exp1 : expr) (exp2 : expr) (env : sign list NameTable.t) : sign list NameTable.t = match exp1, exp2 with
+(* let propagate_eq (exp1 : expr) (exp2 : expr) (env : sign list NameTable.t) : sign list NameTable.t = match exp1, exp2 with
   | Num _, Num _ -> env
   | Var v, Num n | Num n, Var v ->
     let new_sign_list = intersection (sign_expr 0 exp2 NameTable.empty) (find 0 v env)
     in NameTable.update v (fun _ -> Some new_sign_list) env
+  | Var v, Var v' ->
+    let new_sign_list = intersection (find 0 v env) (find 0 v' env)
+    in NameTable.update v (fun _ -> Some new_sign_list) (NameTable.update v' (fun _ -> Some new_sign_list) env)
   | _, _ -> failwith "TODO"
 
   let propagate_eq (exp1 : expr) (exp2 : expr) (env : sign list NameTable.t) : sign list NameTable.t = match exp1, exp2 with
@@ -132,4 +135,4 @@ let propagate_eq (exp1 : expr) (exp2 : expr) (env : sign list NameTable.t) : sig
   | Var v, Num n | Num n, Var v ->
     let new_sign_list = intersection (sign_expr 0 exp2 NameTable.empty) (find 0 v env)
     in NameTable.update v (fun _ -> Some new_sign_list) env
-  | _, _ -> failwith "TODO"  
+  | _, _ -> failwith "TODO" *)
